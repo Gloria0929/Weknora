@@ -61,6 +61,7 @@
     <WriteSandboxFileResult
       v-else-if="displayType === 'write_sandbox_file' || displayType === 'edit_sandbox_file'"
       :data="toolData as WriteSandboxFileData"
+      :arguments="toolArguments"
     />
 
     <ReadSkillResult

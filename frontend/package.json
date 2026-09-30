@@ -24,6 +24,7 @@
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
     "axios": "^1.16.0",
+    "diff": "^9.0.0",
     "docx-preview": "^0.3.7",
     "dompurify": "^3.4.11",
     "highlight.js": "^11.11.1",
@@ -48,6 +49,7 @@
   },
   "devDependencies": {
     "@tsconfig/node22": "^22.0.5",
+    "@types/diff": "^7.0.2",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-vue": "6.0.6",
     "@vitejs/plugin-vue-jsx": "5.1.5",

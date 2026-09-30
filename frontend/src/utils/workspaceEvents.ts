@@ -29,6 +29,103 @@ const commandTools = new Set(['shell_exec', 'execute_code'])
 /** Writes and edits name the artifact a finished turn should show. */
 const artifactTools = new Set(['write_sandbox_file', 'edit_sandbox_file'])
 
+/** Writes and edits are the only tools that produce a file diff. */
+const mutationTools = new Set(['write_sandbox_file', 'edit_sandbox_file'])
+
+export interface WorkspaceFileChange {
+  path: string
+  type: 'added' | 'modified'
+  /** Pre-write text; empty string for a brand-new file, undefined when the
+   *  backend omitted the body because the file was too large to ship. */
+  before?: string
+  after?: string
+  addedLines: number
+  removedLines: number
+}
+
+function toCount(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(n) && n > 0 ? Math.trunc(n) : 0
+}
+
+/**
+ * Every object level a tool result can hide behind: live SSE flattens the
+ * result onto `data`, history stores it under `tool_data`, and some shapes wrap
+ * it one more time in `data`. Follow the chain so the caller reads the level
+ * that actually carries `path` / `diff_*` instead of assuming one shape.
+ */
+function toolResultLevels(root: any): Array<Record<string, any>> {
+  const levels: Array<Record<string, any>> = []
+  const seen = new Set<any>()
+  let current: any = root
+  while (
+    current &&
+    typeof current === 'object' &&
+    !seen.has(current) &&
+    levels.length < 6
+  ) {
+    seen.add(current)
+    levels.push(current)
+    current = current.tool_data ?? current.data
+  }
+  return levels
+}
+
+/**
+ * The file mutation a `tool_result` chunk reports, or null.
+ *
+ * `before`/`after` are the full-file sides the backend ships for the code view
+ * diff; a file past the payload cap reports only the +/- line counts, and the
+ * caller still uses the path to move the reader to the file.
+ */
+export function workspaceFileChange(
+  chunk: { response_type?: string; data?: Record<string, any> },
+): WorkspaceFileChange | null {
+  if (chunk.response_type !== 'tool_result') return null
+  const levels = toolResultLevels(chunk.data || {})
+  const name = String(
+    levels.map((level) => level.tool_name).find((value) => typeof value === 'string' && value) || '',
+  )
+  if (!mutationTools.has(name)) return null
+  const result = levels.find((level) => level.path || level.file_path)
+  if (!result) return null
+  const path = String(result.path || result.file_path || '')
+  if (!path) return null
+  const before = typeof result.diff_before === 'string' ? result.diff_before : undefined
+  const after = typeof result.diff_after === 'string' ? result.diff_after : undefined
+  return {
+    path,
+    type: name === 'write_sandbox_file' && before === '' ? 'added' : 'modified',
+    before,
+    after,
+    addedLines: toCount(result.added_lines),
+    removedLines: toCount(result.removed_lines),
+  }
+}
+
+/**
+ * Every file mutation a loaded conversation recorded, oldest first.
+ *
+ * Reloading a session replays the persisted tool events, so the diff a turn
+ * produced is still there to show after a refresh.
+ */
+export function collectWorkspaceFileChanges(
+  messages: Array<Record<string, any>>,
+): WorkspaceFileChange[] {
+  const out: WorkspaceFileChange[] = []
+  for (const message of messages) {
+    for (const event of message.agentEventStream || []) {
+      if (event.type !== 'tool_call' || event.pending) continue
+      const change = workspaceFileChange({
+        response_type: 'tool_result',
+        data: { ...(event.tool_data || {}), tool_name: event.tool_name },
+      })
+      if (change) out.push(change)
+    }
+  }
+  return out
+}
+
 /** Only real workspace tools drive the panel; ordinary answers/code snippets do not. */
 export function workspaceToolSignal(chunk: { response_type?: string; data?: Record<string, any> }): WorkspaceSignal | null {
   if (chunk.response_type !== 'tool_call' && chunk.response_type !== 'tool_result') return null

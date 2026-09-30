@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { collectWorkspaceRuns, completedWorkspacePanel, intentPanelTab, workspaceIntent, workspaceToolSignal, lastWorkspaceSignal } from './workspaceEvents'
+import { collectWorkspaceFileChanges, collectWorkspaceRuns, completedWorkspacePanel, intentPanelTab, workspaceFileChange, workspaceIntent, workspaceToolSignal, lastWorkspaceSignal } from './workspaceEvents'
 import { resolveWorkspaceAsset, canPreviewSource, PREVIEW_CSP } from './workspacePreview'
 
 test('intent selects the right workspace surface without treating knowledge as coding', () => {
@@ -87,4 +87,77 @@ test('standalone preview recognizes supported types and denies network, forms, f
   assert.equal(canPreviewSource('src/App.vue'), false)
   assert.equal(canPreviewSource('index.tsx'), false)
   for (const rule of ["default-src 'none'", "connect-src 'none'", "frame-src 'none'", "base-uri 'none'", "form-action 'none'"]) assert.ok(PREVIEW_CSP.includes(rule))
+})
+
+test('a write or edit result exposes the before/after sides the code view diffs', () => {
+  const edit = workspaceFileChange({ response_type: 'tool_result', data: {
+    tool_name: 'edit_sandbox_file',
+    tool_data: { path: 'src/main.ts', diff_before: 'a\n', diff_after: 'b\n', added_lines: 1, removed_lines: 1 },
+  } })
+  assert.deepEqual(edit, { path: 'src/main.ts', type: 'modified', before: 'a\n', after: 'b\n', addedLines: 1, removedLines: 1 })
+
+  // A write with no pre-image is a brand-new (added) file.
+  const created = workspaceFileChange({ response_type: 'tool_result', data: {
+    tool_name: 'write_sandbox_file',
+    tool_data: { path: 'index.html', diff_before: '', diff_after: '<h1>x</h1>', added_lines: 1 },
+  } })
+  assert.equal(created?.type, 'added')
+  assert.equal(created?.after, '<h1>x</h1>')
+
+  // An oversized payload omits both sides but still names the file to follow.
+  const capped = workspaceFileChange({ response_type: 'tool_result', data: {
+    tool_name: 'write_sandbox_file',
+    tool_data: { path: 'big.txt', added_lines: 900, removed_lines: 0 },
+  } })
+  assert.equal(capped?.before, undefined)
+  assert.equal(capped?.after, undefined)
+  assert.equal(capped?.addedLines, 900)
+
+  // Reads and non-mutation tools never produce a diff.
+  assert.equal(workspaceFileChange({ response_type: 'tool_result', data: { tool_name: 'read_sandbox_file', tool_data: { path: 'a.txt' } } }), null)
+  assert.equal(workspaceFileChange({ response_type: 'tool_call', data: { tool_name: 'write_sandbox_file' } }), null)
+})
+
+test('loaded history replays every write and edit, oldest first, skipping pending calls', () => {
+  const messages = [
+    { id: 'a', agentEventStream: [
+      { type: 'tool_call', tool_name: 'write_sandbox_file', tool_data: { path: '/workspace/index.html', diff_before: '', diff_after: 'x' } },
+      { type: 'tool_call', tool_name: 'read_sandbox_file', tool_data: { path: '/workspace/README.md' } },
+    ] },
+    { id: 'b', agentEventStream: [
+      { type: 'tool_call', tool_name: 'edit_sandbox_file', pending: true, tool_data: { path: '/workspace/app.ts' } },
+      { type: 'tool_call', tool_name: 'edit_sandbox_file', tool_data: { path: '/workspace/app.ts', diff_before: 'a', diff_after: 'b' } },
+    ] },
+  ]
+  const changes = collectWorkspaceFileChanges(messages)
+  assert.deepEqual(changes.map((change) => change.path), ['/workspace/index.html', '/workspace/app.ts'])
+  assert.equal(changes[0].type, 'added')
+  assert.equal(changes[1].type, 'modified')
+  assert.equal(changes[1].after, 'b')
+})
+
+test('a write or edit result is found however the SSE or history nests it', () => {
+  const diff = { path: 'src/main.ts', diff_before: 'a\n', diff_after: 'b\n', added_lines: 1, removed_lines: 1 }
+  // Live SSE: the result is flat on `data`.
+  assert.equal(workspaceFileChange({ response_type: 'tool_result', data: { tool_name: 'edit_sandbox_file', ...diff } })?.path, 'src/main.ts')
+  // History: the result sits one level down under `tool_data`.
+  assert.equal(workspaceFileChange({ response_type: 'tool_result', data: { tool_name: 'edit_sandbox_file', tool_data: diff } })?.path, 'src/main.ts')
+  // Doubly wrapped: `tool_data.tool_data` and `tool_data.data`.
+  assert.equal(workspaceFileChange({ response_type: 'tool_result', data: { tool_name: 'edit_sandbox_file', tool_data: { tool_data: diff } } })?.path, 'src/main.ts')
+  assert.equal(workspaceFileChange({ response_type: 'tool_result', data: { tool_name: 'edit_sandbox_file', tool_data: { data: diff } } })?.path, 'src/main.ts')
+  // The tool name may only live on the inner record.
+  assert.equal(workspaceFileChange({ response_type: 'tool_result', data: { tool_data: { tool_name: 'edit_sandbox_file', path: 'src/main.ts', diff_before: 'a', diff_after: 'b' } } })?.after, 'b')
+})
+
+test('replayed history unwraps nested tool_data so the diff survives a reload', () => {
+  const messages = [
+    { id: 'a', agentEventStream: [
+      { type: 'tool_call', tool_name: 'edit_sandbox_file', tool_data: { tool_data: { path: '/workspace/app.ts', diff_before: 'a', diff_after: 'b' } } },
+      { type: 'tool_call', tool_name: 'write_sandbox_file', tool_data: { data: { path: '/workspace/new.ts', diff_before: '', diff_after: 'x' } } },
+    ] },
+  ]
+  const changes = collectWorkspaceFileChanges(messages)
+  assert.deepEqual(changes.map((change) => change.path), ['/workspace/app.ts', '/workspace/new.ts'])
+  assert.equal(changes[0].before, 'a')
+  assert.equal(changes[1].type, 'added')
 })

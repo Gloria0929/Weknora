@@ -63,7 +63,10 @@ export function provideChatSandboxPanel(): ChatSandboxPanelContext {
 
   const open = (tab?: SandboxPanelTab, focus?: ArtifactPanelFocus) => {
     autoOpenAllowed.value = true
-    if (tab) activeTab.value = tab
+    // A bare open (the header toggle) always returns to the preview tab;
+    // callers that target a specific tab (diff on edit, artifacts, terminal)
+    // pass one explicitly and are unaffected.
+    activeTab.value = tab || 'preview'
     if (focus) {
       artifactFocus.value = { ...focus, nonce: ++focusNonce }
     }

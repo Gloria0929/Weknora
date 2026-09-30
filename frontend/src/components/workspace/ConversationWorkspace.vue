@@ -78,9 +78,9 @@
         <div class="workspace-main">
           <div v-if="file" class="file-toolbar">
             <span class="file-toolbar__path" :title="file.path">{{ file.path }}</span>
-            <div v-if="canPreviewSource(file.path) && tab === 'source'" class="file-view-switch" role="group" :aria-label="t('workspace.fileView')">
-              <button type="button" :aria-pressed="!showFilePreview" @click="fileView = 'source'">{{ t('workspace.source') }}</button>
-              <button type="button" :aria-pressed="showFilePreview" @click="fileView = 'preview'">{{ t('workspace.preview') }}</button>
+            <div v-if="showViewSwitch" class="file-view-switch" role="group" :aria-label="t('workspace.fileView')">
+              <button type="button" :aria-pressed="fileView !== 'preview'" @click="fileView = 'source'">{{ t('workspace.source') }}</button>
+              <button type="button" :aria-pressed="fileView === 'preview'" @click="fileView = 'preview'">{{ t('workspace.preview') }}</button>
             </div>
             <button v-if="showFilePreview" type="button" :aria-pressed="mobilePreview" :title="t(mobilePreview ? 'workspace.desktop' : 'workspace.mobile')" :aria-label="t(mobilePreview ? 'workspace.desktop' : 'workspace.mobile')" @click="mobilePreview = !mobilePreview"><t-icon :name="mobilePreview ? 'desktop' : 'mobile'" /></button>
             <button v-else type="button" :title="t(copied ? 'workspace.copied' : 'workspace.copy')" :aria-label="t(copied ? 'workspace.copied' : 'workspace.copy')" @click="copySource"><t-icon :name="copied ? 'check' : 'copy'" /></button>
@@ -113,7 +113,41 @@
               >
             </div>
           </div>
-          <template v-else-if="!showFilePreview && file">
+          <template v-else-if="showFileDiff && file">
+            <div class="diff-scroll" tabindex="0" :aria-label="file.path">
+              <table class="diff-table">
+                <tbody>
+                  <template
+                    v-for="(hunk, hunkIndex) in diffHunks"
+                    :key="`hunk-${hunkIndex}`"
+                  >
+                    <tr class="diff-hunk-row">
+                      <td colspan="3" class="diff-hunk">{{ hunk.header }}</td>
+                    </tr>
+                    <tr
+                      v-for="(line, lineIndex) in hunk.lines"
+                      :key="`line-${hunkIndex}-${lineIndex}`"
+                      class="diff-row"
+                      :class="`is-${line.type}`"
+                    >
+                      <td class="diff-gutter">{{ line.oldNumber ?? "" }}</td>
+                      <td class="diff-gutter">{{ line.newNumber ?? "" }}</td>
+                      <td class="diff-code">
+                        <span class="diff-sign" aria-hidden="true">{{
+                          line.type === "add"
+                            ? "+"
+                            : line.type === "del"
+                              ? "-"
+                              : " "
+                        }}</span>{{ line.content }}
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </template>
+          <template v-else-if="!showFilePreview && !showFileDiff && file">
             <p v-if="copyError" class="workspace-notice" role="alert">
               {{ copyError }}
             </p>
@@ -297,6 +331,8 @@ import {
   buildWorkspacePreview,
   canPreviewSource,
 } from "@/utils/workspacePreview";
+import { buildUnifiedDiff } from "@/utils/unifiedDiff";
+import { findFileChange, useFileChanges } from "@/composables/useFileChanges";
 import type {
   WorkspaceTab,
   WorkspaceCommandRun,
@@ -400,8 +436,47 @@ const copied = ref(false),
   previewError = ref(""),
   previewLoading = ref(false),
   previewVersion = ref(0);
-const fileView = ref<'source' | 'preview'>('source');
-const showFilePreview = computed(() => props.tab === 'preview' || (fileView.value === 'preview' && Boolean(file.value && canPreviewSource(file.value.path))));
+type FileView = 'source' | 'diff' | 'preview';
+const fileView = ref<FileView>('source');
+const { changes: fileChanges, activeId: activeFileChange } = useFileChanges();
+const canPreviewFile = computed(
+  () => Boolean(file.value && canPreviewSource(file.value.path)),
+);
+/** The write/edit recorded for the file on screen, if any. */
+const currentChange = computed(() => {
+  const path = file.value?.path;
+  return path ? findFileChange(fileChanges.value, path) : undefined;
+});
+/** The unified diff for the file on screen; null when there is nothing to show. */
+const currentDiff = computed(() => {
+  const change = currentChange.value;
+  if (!change || change.before === undefined || change.after === undefined)
+    return null;
+  if (change.before === change.after) return null;
+  const diff = buildUnifiedDiff(change.before, change.after);
+  return diff.empty ? null : diff;
+});
+const hasFileDiff = computed(() => currentDiff.value !== null);
+const diffHunks = computed(() => currentDiff.value?.hunks ?? []);
+// The color difference is part of the code pane itself, Codex-style: the moment
+// a file has a recorded change we render its diff inline, with no separate
+// "diff" mode to switch into. Only the explicit preview view replaces it.
+const showFileDiff = computed(
+  () =>
+    props.tab === 'source' &&
+    !(fileView.value === 'preview' && canPreviewFile.value) &&
+    hasFileDiff.value,
+);
+// The switch only needs to offer the standalone preview; the colored diff is
+// always drawn in the code pane when one exists.
+const showViewSwitch = computed(
+  () => props.tab === 'source' && canPreviewFile.value,
+);
+const showFilePreview = computed(
+  () =>
+    props.tab === 'preview' ||
+    (fileView.value === 'preview' && canPreviewFile.value),
+);
 const command = ref(""),
   running = ref(false),
   runError = ref("");
@@ -558,7 +633,7 @@ function relativePath(path: string) {
       ? ""
       : normalized;
 }
-async function openFile(path: string) {
+async function openFile(path: string, view?: FileView) {
   const request = ++fileRequest,
     epoch = generation;
   error.value = "";
@@ -570,6 +645,8 @@ async function openFile(path: string) {
     const data = await api.file(props.sessionId, path);
     if (epoch !== generation || request !== fileRequest) return;
     file.value = data;
+    if (view) fileView.value = view;
+    saveOpenFile(path);
     if (showFilePreview.value) void preparePreview();
   } catch (err) {
     if (epoch !== generation || request !== fileRequest) return;
@@ -583,6 +660,28 @@ async function openFile(path: string) {
     }
     error.value = t("workspace.fileError");
     void reconcileMissingFile(path);
+  }
+}
+
+function openFileStorageKey(sessionId: string) {
+  return `weknora.workspace.openFile.${sessionId}`;
+}
+
+// Remember the file the user last had open so a reload restores it instead of
+// falling back to the agent's last signal or the first file in the tree.
+function savedOpenFile(): string {
+  try {
+    return localStorage.getItem(openFileStorageKey(props.sessionId)) || "";
+  } catch {
+    return "";
+  }
+}
+
+function saveOpenFile(path: string) {
+  try {
+    localStorage.setItem(openFileStorageKey(props.sessionId), path);
+  } catch {
+    // localStorage may be unavailable in private mode; the view still works.
   }
 }
 
@@ -626,7 +725,16 @@ async function reconcileMissingFile(path: string) {
   if (file.value?.path === path) file.value = null;
   error.value = t("workspace.fileGone");
 }
+// Set by a live edit so the very next refresh opens that file in the diff view.
+// A panel that mounts *after* the change missed the activeFileChange watcher
+// firing, so the refresh is what lands the reader on the diff.
+let pendingDiffPath = "";
 async function refresh() {
+  await refreshInternal(false);
+}
+
+/** Reload the tree, then reopen either the focus target or the current file. */
+async function refreshInternal(preferFocus: boolean) {
   const epoch = generation,
     request = ++refreshRequest;
   const loaded = Object.keys(childrenByPath.value);
@@ -634,13 +742,50 @@ async function refresh() {
     (loaded.length ? loaded : [""]).map((path) => loadDirectory(path)),
   );
   if (epoch !== generation || request !== refreshRequest || error.value) return;
-  // 优先刷新当前打开的文件，只有没有打开文件时才 fallback 到 focusPath 或默认文件
-  const candidate = file.value?.path || relativePath(props.focusPath) || defaultFile();
+  const focus = relativePath(props.focusPath);
+  const restored = savedOpenFile();
+  // A live-edit path may still carry the workspace root (the tree is not
+  // loaded when the agent reports it); strip it now that root is known.
+  const rawLiveFocus = pendingDiffPath;
+  pendingDiffPath = "";
+  const liveFocus = rawLiveFocus
+    ? relativePath(rawLiveFocus) || (rawLiveFocus.startsWith("/") ? "" : rawLiveFocus)
+    : "";
+  // A manual refresh keeps the file the user opened; an agent-driven refresh
+  // follows focusPath (or a live edit) so the view jumps to whichever file is
+  // changing, even when the panel only mounted after the change was recorded.
+  const follow = preferFocus && focus ? focus : liveFocus;
+  const candidate =
+    follow || file.value?.path || restored || focus || defaultFile();
   if (!candidate) return;
   await revealPath(candidate);
   if (epoch !== generation || request !== refreshRequest) return;
-  await openFile(candidate);
+  // An agent-driven refresh lands on the changed file and shows its diff; a
+  // manual refresh keeps whatever view the reader was on.
+  await openFile(candidate, follow ? "diff" : undefined);
 }
+
+// Live edit: follow the file the agent just wrote. The store keeps one entry
+// per path, so A → B → A lands on the right file each time instead of staying
+// on whatever was open when the turn started.
+let lastFollowedChange = "";
+watch(activeFileChange, async (id) => {
+  if (!id || id === lastFollowedChange) return;
+  lastFollowedChange = id;
+  const change = fileChanges.value.find((item) => item.id === id);
+  if (!change?.live) return;
+  // Stash the raw path before awaiting: a fresh mount runs the refresh watcher
+  // in the same tick, and it must find this file rather than a restored one.
+  pendingDiffPath = change.path;
+  if (!root.value) await loadDirectory("");
+  const target = relativePath(change.path) || change.path;
+  // An absolute path that does not sit under the tree root is not addressable
+  // by the file API; the agent-driven refresh above is the fallback for it.
+  if (!target || target.startsWith("/")) return;
+  await revealPath(target);
+  await openFile(target, "diff");
+}, { immediate: true });
+
 async function preparePreview() {
   const current = file.value,
     request = ++previewRequest,
@@ -740,14 +885,22 @@ watch(
     runError.value = "";
   },
 );
+let lastAutoRefresh = { sessionId: "", revision: -1 };
 watch(
   () => [props.sessionId, props.active, props.revision] as const,
-  () => {
+  ([sessionId, active, revision]) => {
     clearTimeout(refreshTimer);
-    if (props.active && props.sessionId)
-      refreshTimer = setTimeout(() => {
-        void refresh();
-      }, 180);
+    if (!active || !sessionId) return;
+    // Follow the freshly-written file only when the agent changed something in
+    // this same session; a fresh mount, a session switch, or a plain tab switch
+    // restores/keeps the file the user last had open.
+    const isNewSession = sessionId !== lastAutoRefresh.sessionId;
+    const revisionChanged = revision !== lastAutoRefresh.revision;
+    lastAutoRefresh = { sessionId, revision };
+    const followFocus = revisionChanged && !isNewSession;
+    refreshTimer = setTimeout(() => {
+      void refreshInternal(followFocus);
+    }, 180);
   },
   { immediate: true },
 );
@@ -1018,6 +1171,58 @@ button {
 .file-toolbar button:hover, .file-toolbar button[aria-pressed="true"] { background: var(--td-bg-color-secondarycontainer); color: var(--td-text-color-primary); }
 .file-toolbar button:focus-visible { outline: 2px solid var(--td-brand-color); outline-offset: 2px; }
 .file-view-switch { display: flex; gap: 2px; padding: 2px; border: 1px solid var(--td-component-stroke); border-radius: 7px; }
+.diff-scroll {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  background: var(--td-bg-color-secondarycontainer);
+}
+.diff-table {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--app-text-md)/1.5 var(--app-font-family-mono, monospace);
+  tab-size: 4;
+}
+.diff-hunk-row td { position: sticky; top: 0; z-index: 1; }
+.diff-hunk {
+  padding: 4px 14px;
+  color: var(--td-text-color-placeholder);
+  font-size: var(--app-text-xs, 12px);
+  background: color-mix(in srgb, var(--td-text-color-primary) 4%, var(--td-bg-color-secondarycontainer));
+  user-select: none;
+}
+.diff-row {
+  &.is-add { background: color-mix(in srgb, #2da44e 22%, transparent); }
+  &.is-del { background: color-mix(in srgb, #cf222e 22%, transparent); }
+}
+.diff-gutter {
+  width: 1%;
+  min-width: 40px;
+  padding: 0 8px;
+  text-align: right;
+  vertical-align: top;
+  white-space: nowrap;
+  user-select: none;
+  color: var(--td-text-color-disabled);
+  border-right: 1px solid var(--td-component-stroke);
+}
+.diff-row.is-add .diff-gutter:first-child { box-shadow: inset 2px 0 0 #2da44e; }
+.diff-row.is-del .diff-gutter:first-child { box-shadow: inset 2px 0 0 #cf222e; }
+.diff-code {
+  padding: 0 16px 0 10px;
+  white-space: pre;
+  vertical-align: top;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+.diff-sign {
+  display: inline-block;
+  width: 1.2em;
+  color: var(--td-text-color-disabled);
+  user-select: none;
+}
+.diff-row.is-add .diff-sign { color: #2da44e; }
+.diff-row.is-del .diff-sign { color: #cf222e; }
 .source-scroll {
   overflow: auto;
   display: flex;
@@ -1095,6 +1300,46 @@ button {
   --ws-code-string: #a5d6ff;
   --ws-code-accent: #79c0ff;
   --ws-code-comment: #8b949e;
+}
+
+:global(:root[theme-mode="dark"])
+  .conversation-workspace
+  .diff-row.is-add {
+  background: color-mix(in srgb, #3fb950 20%, transparent);
+}
+
+:global(:root[theme-mode="dark"])
+  .conversation-workspace
+  .diff-row.is-del {
+  background: color-mix(in srgb, #f85149 20%, transparent);
+}
+
+:global(:root[theme-mode="dark"])
+  .conversation-workspace
+  .diff-row.is-add
+  .diff-gutter:first-child {
+  box-shadow: inset 2px 0 0 #3fb950;
+}
+
+:global(:root[theme-mode="dark"])
+  .conversation-workspace
+  .diff-row.is-del
+  .diff-gutter:first-child {
+  box-shadow: inset 2px 0 0 #f85149;
+}
+
+:global(:root[theme-mode="dark"])
+  .conversation-workspace
+  .diff-row.is-add
+  .diff-sign {
+  color: #3fb950;
+}
+
+:global(:root[theme-mode="dark"])
+  .conversation-workspace
+  .diff-row.is-del
+  .diff-sign {
+  color: #f85149;
 }
 
 :global(:root[theme-mode="dark"])

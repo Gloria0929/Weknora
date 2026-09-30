@@ -13,19 +13,25 @@ const compiled = ts.transpile(setup.replace('export interface', 'interface'), { 
 const file = path => ({ path, content: path, size: path.length, hash: path })
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b }); return { promise, resolve, reject } }
 
-function mount(gateway = {}) {
+function mount(gateway = {}, seed = {}) {
   const props = reactive({ sessionId: 'a', tab: 'source', active: false, revision: 0, focusPath: '', agentRuns: [], gateway: { tree: async () => ({ nodes: [], root: '/workspace' }), file: async (_, path) => file(path), run: async () => ({ stdout: '', stderr: '', exit_code: 0, duration_ms: 1, killed: false }), ...gateway } })
   const emitted = [], cleanup = []
+  // The chat view provides one change list per conversation; the tests drive it
+  // directly so a live edit can be replayed without the SSE handler.
+  const changes = seed.changes || ref([]), activeId = seed.activeId || ref(null)
   const scope = effectScope()
-  const state = scope.run(() => vm.runInNewContext(`${compiled}; ({ file, nodes, directory, error, busy, command, running, runs, runError, openFile, loadDirectory, refresh, runTests, askToFix, reconcileMissingFile, treeRows, toggleDirectory, childrenByPath, expandedPaths, fileGlyph, fileView, showFilePreview, previewHtml, previewLoading })`, {
+  const state = scope.run(() => vm.runInNewContext(`${compiled}; ({ file, nodes, directory, error, busy, command, running, runs, runError, openFile, loadDirectory, refresh, runTests, askToFix, reconcileMissingFile, treeRows, toggleDirectory, childrenByPath, expandedPaths, fileGlyph, fileView, showFilePreview, showFileDiff, showViewSwitch, previewHtml, previewLoading, currentDiff, hasFileDiff })`, {
     computed, ref, watch, defineProps: () => props, withDefaults: value => value,
     defineEmits: () => (...args) => emitted.push(args), useI18n: () => ({ t: (key, values) => key + (values ? JSON.stringify(values) : '') }),
     onBeforeUnmount: fn => cleanup.push(fn), setTimeout, clearTimeout, Blob,
     hljs: { getLanguage: () => false },
     canPreviewSource: path => /\.(?:html?|svg|md|markdown)$/i.test(path),
     buildWorkspacePreview: async (path, content) => ({ html: content, warnings: [] }),
+    useFileChanges: () => ({ changes, activeId, addChange() {}, clearChanges() {}, hasChanges: () => changes.value.length > 0 }),
+    findFileChange: (list, path) => list.find(change => change.path === path || path.endsWith(`/${change.path}`)),
+    buildUnifiedDiff: (before, after) => ({ empty: before === after, hunks: [] }),
   }))
-  return { props, state, emitted, unmount: () => { cleanup.forEach(fn => fn()); scope.stop() } }
+  return { props, state, emitted, changes, activeId, unmount: () => { cleanup.forEach(fn => fn()); scope.stop() } }
 }
 
 test('rapid file selections cannot show a stale response', async () => {
@@ -201,4 +207,72 @@ test('file preview selection resets when changing conversations', async () => {
   assert.equal(view.state.fileView.value, 'source')
   assert.equal(view.state.previewHtml.value, '')
   view.unmount()
+})
+
+const flush = async () => { await nextTick(); await new Promise(resolve => setImmediate(resolve)); await nextTick() }
+const liveChange = (id, path) => ({ id, path, type: 'modified', before: 'one\n', after: 'two\n', addedLines: 1, removedLines: 1, timestamp: 1, live: true })
+
+test('a live edit opens the changed file in the diff view and follows A then B', async () => {
+  const view = mount()
+  view.changes.value = [liveChange('a-1', '/workspace/a.ts')]
+  view.activeId.value = 'a-1'
+  await flush()
+  assert.equal(view.state.file.value.path, 'a.ts')
+  assert.equal(view.state.fileView.value, 'diff')
+  // A second file retargets the view instead of leaving the reader on A.
+  view.changes.value = [...view.changes.value, liveChange('b-2', '/workspace/src/b.ts')]
+  view.activeId.value = 'b-2'
+  await flush()
+  assert.equal(view.state.file.value.path, 'src/b.ts')
+  assert.equal(view.state.fileView.value, 'diff')
+  view.unmount()
+})
+
+test('a panel that mounts after a live edit still lands on the diff, not the restored file', async () => {
+  // The edit happened before the panel was mounted: the immediate watcher and
+  // the refresh both have to land on the changed file in diff view.
+  const changes = ref([liveChange('a-1', '/workspace/a.ts')])
+  const view = mount({}, { changes, activeId: ref('a-1') })
+  await flush()
+  assert.equal(view.state.fileView.value, 'diff')
+  assert.equal(view.state.file.value.path, 'a.ts')
+  view.unmount()
+})
+
+test('restored history alone does not force the diff view open', async () => {
+  const changes = ref([{ ...liveChange('h-1', '/workspace/a.ts'), live: false }])
+  const view = mount({}, { changes, activeId: ref('h-1') })
+  await flush()
+  assert.equal(view.state.fileView.value, 'source')
+  view.unmount()
+})
+
+test('a changed file shows its colored diff inline without a diff toggle', async () => {
+  // The user opens the file from the tree instead of waiting for the live
+  // watcher: the code pane still has to paint the diff, not plain source.
+  const changes = ref([{ ...liveChange('m-1', 'a.ts'), live: false }])
+  const view = mount({}, { changes, activeId: ref(null) })
+  await view.state.openFile('a.ts')
+  await nextTick()
+  assert.equal(view.state.hasFileDiff.value, true)
+  assert.equal(view.state.showFileDiff.value, true)
+  // No previewable file here, so the toolbar carries no view switch at all.
+  assert.equal(view.state.showViewSwitch.value, false)
+  view.unmount()
+})
+
+test('the code pane offers only source and preview, never a diff mode button', () => {
+  // The colored diff lives inside the code pane; a dedicated button to reach
+  // it would be the separate "changes" view the reader asked us to drop.
+  assert.doesNotMatch(source, /fileView = 'diff'/)
+  assert.doesNotMatch(source, /v-if="hasFileDiff" type="button"/)
+})
+
+test('the diff renders inside the code view, never as a separate sidebar tab', () => {
+  const panel = readFileSync(new URL('../chat/SandboxSidePanel.vue', import.meta.url), 'utf8')
+  assert.match(source, /class="diff-table"/)
+  assert.match(source, /showFileDiff/)
+  // The sidebar keeps Preview/Source/Tests/Artifacts/Terminal — no Changes tab.
+  assert.doesNotMatch(panel, /id: 'changes'/)
+  assert.doesNotMatch(panel, /tabChanges|changesTab/)
 })

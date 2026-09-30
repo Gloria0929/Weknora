@@ -125,10 +125,6 @@
           :title="t('workspace.urlPreview')"
         />
       </div>
-      <details class="url-help">
-        <summary>{{ t("workspace.urlPreviewTroubleshoot") }}</summary>
-        <p>{{ t("workspace.urlPreviewLimitations") }}</p>
-      </details>
     </template>
   </section>
 </template>
@@ -355,23 +351,11 @@ summary:focus-visible {
   border: 1px solid var(--td-component-stroke);
   border-radius: 12px;
 }
-.url-notice,
-.url-help {
+.url-notice {
   margin: 0;
   padding: 10px 12px;
   font-size: var(--app-text-sm);
   line-height: 1.7;
   color: var(--td-text-color-secondary);
-}
-.url-help {
-  border-top: 1px solid var(--td-component-stroke);
-  max-height: 30%;
-  overflow: auto;
-}
-.url-help summary {
-  cursor: pointer;
-}
-.url-help p {
-  margin: 8px 0 0;
 }
 </style>
