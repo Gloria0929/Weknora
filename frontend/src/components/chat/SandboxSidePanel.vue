@@ -85,7 +85,7 @@
           <t-skeleton animation="gradient" :row-col="[{ width: '100%', height: '100%', type: 'rect' }]" />
         </div>
 
-        <!-- The browser owns both project previews and desktop interaction. -->
+        <!-- URL previews work independently of the optional desktop connection. -->
         <WorkspaceBrowserPreview
           v-if="desktopMounted && !workspaceGateway"
           v-show="panel?.activeTab.value === 'preview'"

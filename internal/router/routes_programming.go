@@ -30,4 +30,5 @@ func RegisterProgrammingRoutes(
 	postProgramming.POST("/file/delete", h.DeleteFile)
 	postProgramming.POST("/command", h.RunCommand)
 	postProgramming.POST("/preview", h.OpenPreview)
+	postProgramming.POST("/web-preview", h.DiscoverWebPreview)
 }

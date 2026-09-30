@@ -31,6 +31,7 @@ import (
 // WebsocketDialer dials one data-plane port of one sandbox over
 // WebSocket. Build it with SandboxGatewayTransportPool.WebsocketDialerFor.
 type WebsocketDialer struct {
+	httpTransport http.RoundTripper
 	// tokens is the registry of the pool that built this dialer.
 	tokens *InboundTokenRegistry
 	policy OutboundURLPolicy
@@ -58,6 +59,7 @@ func (p *SandboxGatewayTransportPool) WebsocketDialerFor(cfg *Config) *Websocket
 	}
 	gatewayURL, _ := gatewayEndpointFor(cfg)
 	d := &WebsocketDialer{
+		httpTransport: p.RoundTripperFor(cfg),
 		tokens:        p.inboundTokens,
 		policy:        p.policy,
 		scheme:        "wss",

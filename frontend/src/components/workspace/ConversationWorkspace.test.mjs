@@ -8,7 +8,7 @@ import { computed, effectScope, nextTick, reactive, ref, watch } from 'vue'
 // Exercise the component's state transitions without a browser or a sandbox.
 // All filesystem and execution calls pass through an explicitly supplied test gateway.
 const source = readFileSync(new URL('./ConversationWorkspace.vue', import.meta.url), 'utf8')
-const setup = source.split('<script setup lang="ts">')[1].split('</script>')[0].replace(/^import .*$/gm, '')
+const setup = source.split('<script setup lang="ts">')[1].split('</script>')[0].replace(/^import[\s\S]*?from ['"][^'"]+['"];?\n/gm, '')
 const compiled = ts.transpile(setup.replace('export interface', 'interface'), { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None })
 const file = path => ({ path, content: path, size: path.length, hash: path })
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b }); return { promise, resolve, reject } }
@@ -17,11 +17,13 @@ function mount(gateway = {}) {
   const props = reactive({ sessionId: 'a', tab: 'source', active: false, revision: 0, focusPath: '', agentRuns: [], gateway: { tree: async () => ({ nodes: [], root: '/workspace' }), file: async (_, path) => file(path), run: async () => ({ stdout: '', stderr: '', exit_code: 0, duration_ms: 1, killed: false }), ...gateway } })
   const emitted = [], cleanup = []
   const scope = effectScope()
-  const state = scope.run(() => vm.runInNewContext(`${compiled}; ({ file, nodes, directory, error, busy, command, running, runs, runError, openFile, loadDirectory, refresh, runTests, askToFix, reconcileMissingFile, treeRows, toggleDirectory, childrenByPath, expandedPaths, fileGlyph })`, {
+  const state = scope.run(() => vm.runInNewContext(`${compiled}; ({ file, nodes, directory, error, busy, command, running, runs, runError, openFile, loadDirectory, refresh, runTests, askToFix, reconcileMissingFile, treeRows, toggleDirectory, childrenByPath, expandedPaths, fileGlyph, fileView, showFilePreview, previewHtml, previewLoading })`, {
     computed, ref, watch, defineProps: () => props, withDefaults: value => value,
     defineEmits: () => (...args) => emitted.push(args), useI18n: () => ({ t: (key, values) => key + (values ? JSON.stringify(values) : '') }),
     onBeforeUnmount: fn => cleanup.push(fn), setTimeout, clearTimeout, Blob,
     hljs: { getLanguage: () => false },
+    canPreviewSource: path => /\.(?:html?|svg|md|markdown)$/i.test(path),
+    buildWorkspacePreview: async (path, content) => ({ html: content, warnings: [] }),
   }))
   return { props, state, emitted, unmount: () => { cleanup.forEach(fn => fn()); scope.stop() } }
 }
@@ -133,7 +135,7 @@ test('a file the backend no longer serves leaves the tree instead of a dead row'
   view.unmount()
 })
 
-test('the toolbar is gone and the file tree is not behind a toggle', () => {
+test('the file tree stays visible alongside the per-file toolbar', () => {
   assert.doesNotMatch(source, /workspace-toolbar/)
   assert.doesNotMatch(source, /treeOpen/)
   assert.match(source, /<aside class="file-tree"/)
@@ -171,4 +173,32 @@ test('preview frame has an opaque origin and no form, top navigation, or same-or
   const sandbox = source.match(/<iframe[^>]*sandbox="([^"]+)"/)?.[1]
   assert.equal(sandbox, 'allow-scripts')
   assert.match(source, /referrerpolicy="no-referrer"/)
+})
+
+
+test('HTML can switch between source and preview inside the code tab', async () => {
+  const view = mount()
+  await view.state.openFile('index.html')
+  assert.equal(view.state.showFilePreview.value, false)
+  view.state.fileView.value = 'preview'; await new Promise(resolve => setImmediate(resolve))
+  assert.equal(view.state.showFilePreview.value, true)
+  assert.equal(view.state.previewHtml.value, 'index.html')
+  await view.state.openFile('style.css'); await nextTick()
+  assert.equal(view.state.showFilePreview.value, false)
+  await view.state.openFile('other.html'); await new Promise(resolve => setImmediate(resolve))
+  assert.equal(view.state.showFilePreview.value, true)
+  assert.equal(view.state.previewHtml.value, 'other.html')
+  view.state.fileView.value = 'source'; await nextTick()
+  assert.equal(view.state.showFilePreview.value, false)
+  view.unmount()
+})
+
+test('file preview selection resets when changing conversations', async () => {
+  const view = mount()
+  await view.state.openFile('index.html')
+  view.state.fileView.value = 'preview'; await nextTick()
+  view.props.sessionId = 'b'; await nextTick()
+  assert.equal(view.state.fileView.value, 'source')
+  assert.equal(view.state.previewHtml.value, '')
+  view.unmount()
 })

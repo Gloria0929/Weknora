@@ -90,3 +90,14 @@ export function deleteProgrammingFile(sessionId: string, path: string) {
 export function runProgrammingCommand(sessionId: string, data: { command: string; path?: string; timeout?: number }) {
   return post<{ success: boolean; data: ProgrammingCommandResult }>(`${base(sessionId)}/command`, data, { timeout: 70_000 })
 }
+
+export interface ProgrammingWebPreview {
+  status: 'ready' | 'not_running' | 'starting' | 'start_failed' | 'paused' | 'unsupported' | 'setup_required' | 'error'
+  url?: string
+  preview_id?: string
+  port?: number
+  detail?: string
+}
+export function discoverProgrammingWebPreview(sessionId: string, data: { start?: boolean; preview_id?: string } = {}) {
+  return post<{ success: boolean; data: ProgrammingWebPreview }>(`${base(sessionId)}/web-preview`, data, { timeout: 45_000 })
+}

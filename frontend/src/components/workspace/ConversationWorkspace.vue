@@ -76,6 +76,16 @@
           </div>
         </aside>
         <div class="workspace-main">
+          <div v-if="file" class="file-toolbar">
+            <span class="file-toolbar__path" :title="file.path">{{ file.path }}</span>
+            <div v-if="canPreviewSource(file.path) && tab === 'source'" class="file-view-switch" role="group" :aria-label="t('workspace.fileView')">
+              <button type="button" :aria-pressed="!showFilePreview" @click="fileView = 'source'">{{ t('workspace.source') }}</button>
+              <button type="button" :aria-pressed="showFilePreview" @click="fileView = 'preview'">{{ t('workspace.preview') }}</button>
+            </div>
+            <button v-if="showFilePreview" type="button" :aria-pressed="mobilePreview" :title="t(mobilePreview ? 'workspace.desktop' : 'workspace.mobile')" :aria-label="t(mobilePreview ? 'workspace.desktop' : 'workspace.mobile')" @click="mobilePreview = !mobilePreview"><t-icon :name="mobilePreview ? 'desktop' : 'mobile'" /></button>
+            <button v-else type="button" :title="t(copied ? 'workspace.copied' : 'workspace.copy')" :aria-label="t(copied ? 'workspace.copied' : 'workspace.copy')" @click="copySource"><t-icon :name="copied ? 'check' : 'copy'" /></button>
+            <button type="button" :title="t('workspace.refresh')" :aria-label="t('workspace.refresh')" @click="refresh"><t-icon name="refresh" /></button>
+          </div>
           <div v-if="error" class="workspace-notice" role="alert">
             <t-icon name="info-circle" /><span>{{ error }}</span
             ><button type="button" @click="refresh">
@@ -103,8 +113,7 @@
               >
             </div>
           </div>
-          <template v-else-if="tab === 'source' && file">
-            <!-- source-head removed -->
+          <template v-else-if="!showFilePreview && file">
             <p v-if="copyError" class="workspace-notice" role="alert">
               {{ copyError }}
             </p>
@@ -120,10 +129,8 @@
               }}</pre>
               <pre class="source-code"><code v-html="highlighted" /></pre>
             </div>
-            <!-- source-footer removed -->
           </template>
-          <template v-else-if="tab === 'preview' && file">
-            <!-- preview-toolbar removed -->
+          <template v-else-if="showFilePreview && file">
             <p v-if="previewError" class="workspace-notice" role="alert">
               {{ previewError }}
             </p>
@@ -155,6 +162,10 @@
               <p>{{ t("workspace.previewEmpty") }}</p>
             </div>
           </template>
+          <footer v-if="file" class="file-status">
+            <span>{{ t(showFilePreview ? "workspace.previewNote" : "workspace.readOnly") }}</span>
+            <span v-if="!showFilePreview">{{ t("workspace.lines", { count: lineCount }) }}</span>
+          </footer>
         </div>
       </div>
     </template>
@@ -389,6 +400,8 @@ const copied = ref(false),
   previewError = ref(""),
   previewLoading = ref(false),
   previewVersion = ref(0);
+const fileView = ref<'source' | 'preview'>('source');
+const showFilePreview = computed(() => props.tab === 'preview' || (fileView.value === 'preview' && Boolean(file.value && canPreviewSource(file.value.path))));
 const command = ref(""),
   running = ref(false),
   runError = ref("");
@@ -557,7 +570,7 @@ async function openFile(path: string) {
     const data = await api.file(props.sessionId, path);
     if (epoch !== generation || request !== fileRequest) return;
     file.value = data;
-    if (props.tab === "preview") void preparePreview();
+    if (showFilePreview.value) void preparePreview();
   } catch (err) {
     if (epoch !== generation || request !== fileRequest) return;
     // A reclaimed workspace loses every path at once. Say that, instead of
@@ -716,6 +729,7 @@ watch(
     pendingPaths.value = [];
     workspaceOrigin.value = "sandbox";
     workspaceState.value = "live";
+    fileView.value = "source";
     previewHtml.value = "";
     previewWarnings.value = [];
     previewError.value = "";
@@ -738,9 +752,10 @@ watch(
   { immediate: true },
 );
 watch(
-  () => props.tab,
-  (tab) => {
-    if (tab === "preview") void preparePreview();
+  () => showFilePreview.value,
+  (preview) => {
+    if (preview) void preparePreview();
+    else { previewRequest++; previewLoading.value = false; }
   },
 );
 onBeforeUnmount(() => {
@@ -812,7 +827,7 @@ button {
 }
 
 .file-tree {
-  width: 220px;
+  width: clamp(132px, 28%, 220px);
   flex-shrink: 0;
   min-height: 0;
   display: flex;
@@ -996,6 +1011,13 @@ button {
   }
 }
 
+.file-status { display: flex; justify-content: space-between; gap: 8px; padding: 6px 10px; border-top: 1px solid var(--td-component-stroke); font-size: 11px; color: var(--td-text-color-placeholder); }
+.file-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--td-component-stroke); }
+.file-toolbar__path { flex: 1; min-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--app-font-family-mono, monospace); font-size: 12px; }
+.file-toolbar button { display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 5px; padding: 6px; background: transparent; color: var(--td-text-color-secondary); cursor: pointer; font: inherit; }
+.file-toolbar button:hover, .file-toolbar button[aria-pressed="true"] { background: var(--td-bg-color-secondarycontainer); color: var(--td-text-color-primary); }
+.file-toolbar button:focus-visible { outline: 2px solid var(--td-brand-color); outline-offset: 2px; }
+.file-view-switch { display: flex; gap: 2px; padding: 2px; border: 1px solid var(--td-component-stroke); border-radius: 7px; }
 .source-scroll {
   overflow: auto;
   display: flex;
