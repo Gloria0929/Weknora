@@ -227,113 +227,15 @@
         </div>
       </div>
     </template>
-    <div v-else class="tests-pane">
-      <div class="tests-heading">
-        <span class="test-glyph"
-          ><t-icon name="check-circle" size="24px"
-        /></span>
-        <h2>{{ t("workspace.testTitle") }}</h2>
-        <p>{{ t("workspace.testDescription") }}</p>
-      </div>
-      <!-- <form class="test-form" @submit.prevent="runTests">
-        <label for="workspace-test-command">{{ t('workspace.command') }}</label>
-        <div class="command-input"><span aria-hidden="true">$</span><input id="workspace-test-command" v-model="command"
-            :placeholder="t('workspace.commandPlaceholder')" :disabled="running" autocomplete="off"
-            spellcheck="false" />
-        </div>
-        <div class="test-form-footer"><span>{{ t('workspace.commandHint') }}</span><button type="submit"
-            class="run-button" :disabled="running || !command.trim()"><t-icon :name="running ? 'loading' : 'play'"
-              :class="{ spinning: running }" />{{ t(running ? 'workspace.running' : 'workspace.run') }}</button></div>
-      </form> -->
-      <p v-if="runError" class="workspace-notice" role="alert">
-        {{ runError }}
-      </p>
-      <div v-if="running" class="run-pending" role="status">
-        <span class="pulse-dot"></span>{{ t("workspace.running") }}
-      </div>
-      <article v-for="run in runs" :key="run.id" class="test-result">
-        <header>
-          <span
-            class="result-status"
-            :class="
-              run.result.killed || run.result.exit_code !== 0
-                ? 'failed'
-                : 'passed'
-            "
-            ><t-icon
-              :name="
-                run.result.killed || run.result.exit_code !== 0
-                  ? 'close-circle'
-                  : 'check-circle'
-              "
-            />{{
-              t(
-                run.result.killed
-                  ? "workspace.timedOut"
-                  : run.result.exit_code === 0
-                    ? "workspace.passed"
-                    : "workspace.failed",
-              )
-            }}</span
-          ><span>{{
-            t("workspace.duration", {
-              seconds: (run.result.duration_ms / 1000).toFixed(2),
-            })
-          }}</span>
-        </header>
-        <code class="run-command">$ {{ run.command }}</code>
-        <pre>{{
-          [run.result.stdout, run.result.stderr].filter(Boolean).join("\n") ||
-          t("workspace.noOutput")
-        }}</pre>
-        <footer>
-          <span>{{
-            t("workspace.exitCode", { code: run.result.exit_code })
-          }}</span
-          ><button
-            v-if="run.result.exit_code !== 0 || run.result.killed"
-            type="button"
-            @click="askToFix(run)"
-          >
-            {{ t("workspace.fix") }}<t-icon name="arrow-up" />
-          </button>
-        </footer>
-      </article>
-      <template v-if="agentRuns.length">
-        <p class="run-group-label">{{ t("workspace.agentRuns") }}</p>
-        <article v-for="run in agentRuns" :key="run.id" class="test-result">
-          <header>
-            <span class="result-status" :class="run.status">{{
-              t(
-                run.status === "running"
-                  ? "workspace.running"
-                  : run.status === "failed"
-                    ? "workspace.failed"
-                    : run.status === "passed"
-                      ? "workspace.passed"
-                      : "workspace.unknown",
-              )
-            }}</span
-            ><span v-if="run.durationMs != null">{{
-              t("workspace.duration", {
-                seconds: (run.durationMs / 1000).toFixed(2),
-              })
-            }}</span>
-          </header>
-          <code class="run-command">$ {{ run.command }}</code>
-          <pre>{{
-            run.output ||
-            (run.status === "running" ? "…" : t("workspace.noOutput"))
-          }}</pre>
-        </article>
-      </template>
-      <div
-        v-if="!runs.length && !agentRuns.length && !running"
-        class="tests-idle"
-      >
-        <t-icon name="terminal" />{{ t("workspace.testingIdle") }}
-      </div>
-    </div>
+    <WorkspaceTestResults
+      v-else
+      :key="sessionId"
+      :session-id="sessionId"
+      :runs="testRuns"
+      :running="running"
+      :error="runError"
+      @ask="emit('ask', $event)"
+    />
   </section>
 </template>
 
@@ -341,6 +243,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import PanelResizeHandle from "@/components/PanelResizeHandle.vue";
+import WorkspaceTestResults from "./WorkspaceTestResults.vue";
 import { formatWorkspaceCode, highlightWorkspaceLines, trimHighlightedIndent } from "@/utils/workspaceCode";
 import { marked } from "marked";
 import { sanitizeMarkdownHTML } from "@/utils/security";
@@ -558,6 +461,17 @@ const command = ref(""),
 const runs = ref<
   Array<{ id: number; command: string; result: ProgrammingCommandResult }>
 >([]);
+const testRuns = computed<WorkspaceCommandRun[]>(() => [
+  ...runs.value.map(run => ({
+    id: `manual:${run.id}`,
+    command: run.command,
+    output: [run.result.stdout, run.result.stderr].filter(Boolean).join('\n'),
+    status: (run.result.killed || run.result.exit_code !== 0 ? 'failed' : 'passed') as WorkspaceCommandRun['status'],
+    durationMs: run.result.duration_ms,
+    exitCode: run.result.exit_code,
+  })),
+  ...props.agentRuns,
+]);
 let generation = 0,
   fileRequest = 0,
   previewRequest = 0,
@@ -1492,14 +1406,6 @@ button {
   background: var(--td-bg-color-page);
 }
 
-:global(:root[theme-mode="dark"]) .conversation-workspace .test-result pre {
-  background: var(--td-bg-color-page);
-}
-
-:global(:root[theme-mode="dark"]) .conversation-workspace .test-glyph {
-  background: var(--td-bg-color-container-active);
-}
-
 :global(:root[theme-mode="dark"]) .conversation-workspace .empty-art {
   background: var(--td-bg-color-secondarycontainer);
 }
@@ -1507,10 +1413,6 @@ button {
 :global(:root[theme-mode="dark"]) .conversation-workspace .workspace-notice {
   background: var(--td-bg-color-container-active);
   color: var(--td-text-color-secondary);
-}
-
-:global(:root[theme-mode="dark"]) .conversation-workspace .test-result {
-  border-color: var(--td-component-stroke);
 }
 
 :global(:root[theme-mode="dark"]) .conversation-workspace .run-command {
@@ -1570,193 +1472,6 @@ button {
 
 .preview-loading {
   padding: 24px;
-  color: var(--td-text-color-placeholder);
-}
-
-.tests-pane {
-  overflow: auto;
-  flex: 1;
-  padding: 24px 20px;
-}
-
-.tests-heading {
-  margin-bottom: 26px;
-
-  h2 {
-    font-size: var(--app-text-3xl);
-    font-weight: 500;
-    margin: 16px 0 10px;
-    letter-spacing: -0.4px;
-  }
-
-  p {
-    color: var(--td-text-color-secondary);
-    font-size: var(--app-text-sm);
-    line-height: 1.9;
-    max-width: 400px;
-  }
-}
-
-.test-glyph {
-  display: inline-flex;
-  padding: 10px;
-  background: var(--td-bg-color-secondarycontainer);
-  border-radius: var(--app-radius-xl);
-}
-
-.test-form label {
-  display: block;
-  font-size: var(--app-text-xs);
-  margin-bottom: 10px;
-}
-
-.command-input {
-  display: flex;
-  gap: 10px;
-  border: 1px solid var(--td-component-border);
-  border-radius: var(--app-radius-md);
-  padding: 12px;
-  align-items: center;
-
-  &:focus-within {
-    outline: 1px solid var(--td-text-color-secondary);
-  }
-
-  span {
-    color: var(--td-text-color-placeholder);
-  }
-
-  input {
-    flex: 1;
-    min-width: 0;
-    font: 12px var(--app-font-family-mono, monospace);
-    background: transparent;
-    color: inherit;
-    border: 0;
-    outline: none;
-
-    &::placeholder {
-      font-size: var(--app-text-2xs);
-    }
-  }
-}
-
-.test-form-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 12px;
-
-  > span {
-    font-size: var(--app-text-2xs);
-    color: var(--td-text-color-placeholder);
-  }
-
-  .run-button {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--td-text-color-primary);
-    color: var(--td-bg-color-container);
-    padding: 9px 12px;
-    border-radius: var(--app-radius-md);
-    font-size: var(--app-text-xs);
-  }
-}
-
-.test-result {
-  border: 1px solid var(--td-component-stroke);
-  border-radius: var(--app-radius-lg);
-  margin-top: 20px;
-  overflow: hidden;
-
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px;
-    font-size: var(--app-text-2xs);
-    color: var(--td-text-color-placeholder);
-  }
-
-  pre {
-    margin: 0;
-    padding: 14px;
-    font: 11px/1.8 var(--app-font-family-mono, monospace);
-    background: var(--td-bg-color-secondarycontainer);
-    max-height: 320px;
-    overflow: auto;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
-
-  footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 12px;
-    color: var(--td-text-color-secondary);
-    font-size: var(--app-text-2xs);
-
-    button {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-  }
-}
-
-.result-status {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-
-  &.passed {
-    color: var(--td-success-color);
-  }
-
-  &.failed {
-    color: var(--td-error-color);
-  }
-}
-
-.run-command {
-  display: block;
-  padding: 0 12px 12px;
-  overflow-wrap: anywhere;
-  font-size: var(--app-text-xs);
-}
-
-.tests-idle {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  color: var(--td-text-color-placeholder);
-  font-size: var(--app-text-xs);
-  padding: 70px 0;
-}
-
-.run-pending {
-  padding: 24px 0;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  color: var(--td-text-color-secondary);
-}
-
-.pulse-dot {
-  width: 6px;
-  height: 6px;
-  background: currentColor;
-  border-radius: 50%;
-  animation: pulse 1s infinite alternate;
-}
-
-.run-group-label {
-  margin-top: 28px;
-  font-size: var(--app-text-2xs);
   color: var(--td-text-color-placeholder);
 }
 
