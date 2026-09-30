@@ -688,6 +688,7 @@ watch(
   () => session_id.value,
   () => {
     sandboxPanel.close();
+    sandboxPanel.activeTab.value = "preview";
     workspacePath.value = "";
     workspaceRevision.value = 0;
     workspaceTurnSignals = [];

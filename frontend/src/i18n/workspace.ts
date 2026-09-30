@@ -1,5 +1,7 @@
 export const workspaceZhCN = {
   fileView: "文件视图",
+  moreTools: "更多",
+  viewTerminal: "查看终端",
   previewMode: "预览方式",
   urlPreview: "网页预览",
   remoteDesktop: "远程桌面",
@@ -16,7 +18,7 @@ export const workspaceZhCN = {
   urlPreviewTroubleshoot: "页面空白或无法访问？",
   urlPreviewLimitations: "项目地址由系统自动生成。如果页面空白，请检查终端中的服务输出，确认依赖安装完成；远程部署还需正确配置预览域名及 WebSocket 转发。可点击右上角在新窗口中打开。",
   openExternal: "在新窗口打开",
-  startUrlPreviewPrompt: "请检查当前会话工作区的项目，安装依赖，启动前端和必要的后端并保持运行，确认前端 HTTP 服务能返回 HTML 页面。前后端分离项目请为前端的 API 路径配置代理到沙箱内后端。系统会自动检测服务并在右侧网页预览中显示，无需图形桌面、浏览器或手动填写 URL。",
+  startUrlPreviewPrompt: "请检查当前会话工作区的项目，安装依赖，启动前端和必要的后端并保持运行，确认前端 HTTP 服务能返回 HTML 页面。前后端分离项目请为前端的 API 路径配置代理到沙箱内后端。启动服务时设置 BROWSER=none，不使用 --open，并仅在服务进程中取消 DISPLAY、WAYLAND_DISPLAY、XAUTHORITY 和 DBUS_SESSION_BUS_ADDRESS。系统会自动检测服务并在右侧网页预览中显示；不要在远程桌面中打开项目浏览器、切换页面或调整桌面窗口。需要视觉验证时使用无头浏览器。",
   autoPreviewAddress: "项目地址 · 自动连接",
   autoPreviewTitle: "项目网页预览",
   autoPreviewDetecting: "正在连接项目…",
@@ -65,7 +67,7 @@ export const workspaceZhCN = {
   startPreview: "启动项目预览",
   browserUnsupported: "当前会话的沙箱未启用图形桌面。请在沙箱配置中选择支持桌面和浏览器的模板，并在新会话中使用。",
   browserMissing: "网页服务已找到，但沙箱内的浏览器无法启动。请确认模板已安装 Chromium 或 Firefox。",
-  startPreviewPrompt: "请检查当前会话沙箱内的项目，安装缺少的依赖，启动前端和所需后端服务并保持运行。使用沙箱中的浏览器验证页面可访问，告诉我本地 HTTP 地址和端口，以便右侧预览打开真实页面。若浏览器缺失，请检查沙箱模板。",
+  startPreviewPrompt: "请检查当前会话沙箱内的项目，安装缺少的依赖，启动前端和所需后端服务并保持运行。关闭服务的自动打开浏览器功能，通过 HTTP 请求或无头浏览器验证页面，由右侧网页预览显示项目。不要为项目预览打开或操作远程桌面的浏览器，也不要调整桌面窗口。",
   tests: "测试",
   panelTitle: "工作面板",
   openPanel: "打开工作面板",
@@ -88,6 +90,7 @@ export const workspaceZhCN = {
   root: "工作区",
   back: "上一级",
   files: "项目文件",
+  resizeFiles: "调整文件树宽度",
   emptyTitle: "作品会在这里展开",
   emptyDescription:
     "在左侧描述你的需求。Agent 创建文件后，你可以在这里预览页面、查看源码和运行测试。",
@@ -97,6 +100,8 @@ export const workspaceZhCN = {
   unavailable:
     "工作区尚未就绪。请先在对话中让 Agent 创建文件，并确认该智能体已配置沙箱。",
   fileError: "文件读取失败，请刷新后重试。",
+  imagePreview: "图片预览",
+  imageError: "图片无法显示，文件可能已损坏或格式不受浏览器支持。",
   fileGone: "文件已不存在，沙箱可能已重建或被清理。可在产物中查找最近的 workspace-source.zip 源码备份。",
   workspaceExpired:
     "沙箱已被回收。若产物中有 workspace-source.zip，请下载最近一次源码备份，重新上传并让 Agent 解压恢复；没有备份的文件需要重新生成。",
@@ -142,6 +147,8 @@ export const workspaceZhCN = {
 
 export const workspaceEnUS: Record<keyof typeof workspaceZhCN, string> = {
   fileView: "File view",
+  moreTools: "More",
+  viewTerminal: "View terminal",
   previewMode: "Preview mode",
   urlPreview: "Web preview",
   remoteDesktop: "Remote desktop",
@@ -158,7 +165,7 @@ export const workspaceEnUS: Record<keyof typeof workspaceZhCN, string> = {
   urlPreviewTroubleshoot: "Blank page or connection problem?",
   urlPreviewLimitations: "The project address is generated automatically. If the page is blank, inspect server logs and installed dependencies. Remote deployments also need preview domain and WebSocket routing. Use the top-right button to open the page in a new window.",
   openExternal: "Open in new window",
-  startUrlPreviewPrompt: "Inspect the project, install dependencies, and start the frontend and necessary backend services. Keep them running and verify the frontend serves HTML. Configure the frontend to proxy API paths to the backend inside the sandbox. The system automatically detects and displays the page in Web preview; no desktop, browser, or manual URL entry is needed.",
+  startUrlPreviewPrompt: "Inspect the project, install dependencies, and start the frontend and necessary backend services. Keep them running and verify the frontend serves HTML. Configure the frontend to proxy API paths to the backend inside the sandbox. Set BROWSER=none, omit --open, and unset DISPLAY, WAYLAND_DISPLAY, XAUTHORITY and DBUS_SESSION_BUS_ADDRESS only for the server processes. The system automatically displays the project in Web preview. Do not open a project browser, navigate pages, or adjust windows in the remote desktop. Use a headless browser for visual verification when needed.",
   autoPreviewAddress: "Project address · automatic connection",
   autoPreviewTitle: "Project web preview",
   autoPreviewDetecting: "Connecting to project…",
@@ -207,7 +214,7 @@ export const workspaceEnUS: Record<keyof typeof workspaceZhCN, string> = {
   startPreview: "Start project preview",
   browserUnsupported: "This session's sandbox has no graphical desktop enabled. Select a desktop and browser template in sandbox settings and use it in a new conversation.",
   browserMissing: "The web server is available but the sandbox browser could not start. Check that the template includes Chromium or Firefox.",
-  startPreviewPrompt: "Inspect the project in this session sandbox, install missing dependencies, and start the frontend and required backend services. Keep them running and verify the page in the sandbox browser. Report its local HTTP URL and port so the preview can show the running page. If the browser is missing, check the sandbox template.",
+  startPreviewPrompt: "Inspect the project in this session sandbox, install missing dependencies, and start the frontend and required backend services. Keep them running with automatic browser opening disabled. Verify the page using HTTP requests or a headless browser and display it in Web preview. Do not open or control remote desktop browsers or adjust desktop windows for project preview.",
   tests: "Tests",
   panelTitle: "Workspace",
   openPanel: "Open workspace",
@@ -230,6 +237,7 @@ export const workspaceEnUS: Record<keyof typeof workspaceZhCN, string> = {
   root: "Workspace",
   back: "Parent folder",
   files: "Project files",
+  resizeFiles: "Resize file tree",
   emptyTitle: "Your work takes shape here",
   emptyDescription:
     "Describe what you need in the conversation. Once the agent creates files, preview pages, inspect source, and run tests here.",
@@ -239,6 +247,8 @@ export const workspaceEnUS: Record<keyof typeof workspaceZhCN, string> = {
   unavailable:
     "The workspace is not ready. Ask the agent to create a file and check that it has a sandbox configured.",
   fileError: "Could not read this file. Refresh and try again.",
+  imagePreview: "Image preview",
+  imageError: "This image could not be displayed. It may be damaged or unsupported by your browser.",
   fileGone:
     "This file no longer exists. The sandbox may have been rebuilt or cleaned up. Look for the latest workspace-source.zip source backup in artifacts.",
   workspaceExpired:

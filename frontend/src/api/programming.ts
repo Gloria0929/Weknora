@@ -22,6 +22,9 @@ export interface ProgrammingFile {
   hash: string
   size: number
   modified?: string
+  /** Raster images use base64; text files keep the original UTF-8 content. */
+  encoding?: 'base64'
+  mime_type?: string
 }
 
 export interface ProgrammingCommandResult {

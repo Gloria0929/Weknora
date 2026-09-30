@@ -108,6 +108,13 @@
           {{ t("workspace.retry") }}
         </button>
         <button
+          v-if="result?.status === 'start_failed' || result?.status === 'error'"
+          type="button"
+          @click="emit('open-terminal')"
+        >
+          {{ t('workspace.viewTerminal') }}
+        </button>
+        <button
           type="button"
           @click="emit('ask', t('workspace.startUrlPreviewPrompt'))"
         >
@@ -138,7 +145,7 @@ const props = defineProps<{
   active: boolean;
   revision?: number;
 }>();
-const emit = defineEmits<{ ask: [prompt: string] }>();
+const emit = defineEmits<{ ask: [prompt: string]; 'open-terminal': [] }>();
 const { t } = useI18n();
 const root = ref<HTMLElement | null>(null);
 const error = ref("");

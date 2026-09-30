@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -33,9 +34,10 @@ const (
 )
 
 const (
-	programmingMaxFileBytes = 2 * 1024 * 1024
-	programmingMaxCommand   = 8 * 1024
-	programmingMaxTimeout   = 60 * time.Second
+	programmingMaxFileBytes  = 2 * 1024 * 1024
+	programmingMaxImageBytes = 20 * 1024 * 1024
+	programmingMaxCommand    = 8 * 1024
+	programmingMaxTimeout    = 60 * time.Second
 )
 
 // ProgrammingHandler exposes the P0 programming-space surface on top of the
@@ -87,6 +89,8 @@ type programmingFile struct {
 	Hash     string    `json:"hash"`
 	Size     int       `json:"size"`
 	Modified time.Time `json:"modified,omitempty"`
+	Encoding string    `json:"encoding,omitempty"`
+	MIMEType string    `json:"mime_type,omitempty"`
 }
 
 // ListTree returns the current workspace files. The store performs the
@@ -217,9 +221,8 @@ func (h *ProgrammingHandler) workspaceWriteConflict(
 	c.Error(apperrors.NewConflictError(message))
 }
 
-// ReadFile reads one text file after resolving it under the active workspace
-// root. Binary files and oversized files are rejected instead of being
-// streamed into the editor.
+// ReadFile reads a workspace file. Browser-supported raster images are returned
+// as base64 for the image viewer; other binary files never enter the text editor.
 func (h *ProgrammingHandler) ReadFile(c *gin.Context) {
 	ctx := c.Request.Context()
 	if _, ok := h.loadOwnedSession(c); !ok {
@@ -257,7 +260,12 @@ func (h *ProgrammingHandler) ReadFile(c *gin.Context) {
 		c.Error(apperrors.NewNotFoundError("file not found"))
 		return
 	}
-	if stat.Size > programmingMaxFileBytes {
+	imageMIME := programmingImageMIME(rel)
+	maxBytes := programmingMaxFileBytes
+	if imageMIME != "" {
+		maxBytes = programmingMaxImageBytes
+	}
+	if stat.Size > int64(maxBytes) {
 		c.Error(apperrors.NewBadRequestError("file is too large for the editor"))
 		return
 	}
@@ -274,11 +282,45 @@ func (h *ProgrammingHandler) ReadFile(c *gin.Context) {
 		c.Error(apperrors.NewConflictError("workspace is not running or the file cannot be read"))
 		return
 	}
+	// Recheck the bytes in case the file grew between stat and read.
+	if len(content) > maxBytes {
+		c.Error(apperrors.NewBadRequestError("file is too large for the viewer"))
+		return
+	}
+	if imageMIME != "" {
+		c.JSON(http.StatusOK, gin.H{"success": true, "data": programmingFile{
+			Path: rel, Content: base64.StdEncoding.EncodeToString(content),
+			Hash: contentHash(content), Size: len(content), Modified: stat.ModTime,
+			Encoding: "base64", MIMEType: imageMIME,
+		}})
+		return
+	}
 	if strings.IndexByte(string(content), 0) >= 0 {
 		c.Error(apperrors.NewBadRequestError("binary files cannot be opened in the editor"))
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": filePayload(rel, content, stat.ModTime)})
+}
+
+func programmingImageMIME(filePath string) string {
+	switch strings.ToLower(path.Ext(filePath)) {
+	case ".png", ".apng":
+		return "image/png"
+	case ".jpg", ".jpeg", ".jfif":
+		return "image/jpeg"
+	case ".gif":
+		return "image/gif"
+	case ".webp":
+		return "image/webp"
+	case ".bmp":
+		return "image/bmp"
+	case ".ico":
+		return "image/x-icon"
+	case ".avif":
+		return "image/avif"
+	default:
+		return ""
+	}
 }
 
 // WriteFile applies an optimistic hash check before writing. This is the

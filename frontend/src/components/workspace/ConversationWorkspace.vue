@@ -9,7 +9,12 @@
   >
     <template v-if="tab !== 'tests'">
       <div class="workspace-body">
-        <aside class="file-tree" :aria-label="t('workspace.files')">
+        <aside
+          ref="treeRef"
+          class="file-tree"
+          :style="treeStyle"
+          :aria-label="t('workspace.files')"
+        >
           <div class="file-tree__scroll">
             <p
               v-if="busy && !treeRows.length"
@@ -74,6 +79,17 @@
               </li>
             </ul>
           </div>
+          <!-- 拖拽分隔条：像调整整个面板一样，把宽度让给代码/差异视图。 -->
+          <PanelResizeHandle
+            edge="right"
+            :label="t('workspace.resizeFiles')"
+            :value="treeWidth || measuredTreeWidth || TREE_MIN_WIDTH"
+            :min="TREE_MIN_WIDTH"
+            :max="TREE_MAX_WIDTH"
+            @start="startTreeResize"
+            @resize="resizeTree"
+            @end="endTreeResize"
+          />
         </aside>
         <div class="workspace-main">
           <div v-if="file" class="file-toolbar">
@@ -83,7 +99,7 @@
               <button type="button" :aria-pressed="fileView === 'preview'" @click="fileView = 'preview'">{{ t('workspace.preview') }}</button>
             </div>
             <button v-if="showFilePreview" type="button" :aria-pressed="mobilePreview" :title="t(mobilePreview ? 'workspace.desktop' : 'workspace.mobile')" :aria-label="t(mobilePreview ? 'workspace.desktop' : 'workspace.mobile')" @click="mobilePreview = !mobilePreview"><t-icon :name="mobilePreview ? 'desktop' : 'mobile'" /></button>
-            <button v-else type="button" :title="t(copied ? 'workspace.copied' : 'workspace.copy')" :aria-label="t(copied ? 'workspace.copied' : 'workspace.copy')" @click="copySource"><t-icon :name="copied ? 'check' : 'copy'" /></button>
+            <button v-else-if="!imageSource" type="button" :title="t(copied ? 'workspace.copied' : 'workspace.copy')" :aria-label="t(copied ? 'workspace.copied' : 'workspace.copy')" @click="copySource"><t-icon :name="copied ? 'check' : 'copy'" /></button>
             <button type="button" :title="t('workspace.refresh')" :aria-label="t('workspace.refresh')" @click="refresh"><t-icon name="refresh" /></button>
           </div>
           <div v-if="error" class="workspace-notice" role="alert">
@@ -113,9 +129,16 @@
               >
             </div>
           </div>
+          <template v-else-if="imageSource && file">
+            <p v-if="imageError" class="workspace-notice" role="alert">{{ t('workspace.imageError') }}</p>
+            <div v-else class="image-preview" tabindex="0" :aria-label="file.path">
+              <img :key="imageSource" :src="imageSource" :alt="file.path" @error="imageError = true" />
+            </div>
+          </template>
           <template v-else-if="showFileDiff && file">
             <div class="diff-scroll" tabindex="0" :aria-label="file.path">
               <table class="diff-table">
+                <colgroup><col class="diff-number-column" /><col class="diff-number-column" /><col /></colgroup>
                 <tbody>
                   <template
                     v-for="(hunk, hunkIndex) in diffHunks"
@@ -133,13 +156,12 @@
                       <td class="diff-gutter">{{ line.oldNumber ?? "" }}</td>
                       <td class="diff-gutter">{{ line.newNumber ?? "" }}</td>
                       <td class="diff-code">
-                        <span class="diff-sign" aria-hidden="true">{{
-                          line.type === "add"
-                            ? "+"
-                            : line.type === "del"
-                              ? "-"
-                              : " "
-                        }}</span>{{ line.content }}
+                        <div class="diff-line">
+                          <span class="diff-sign" aria-hidden="true">{{
+                            line.type === "add" ? "+" : line.type === "del" ? "-" : " "
+                          }}</span>
+                          <span class="diff-text" v-html="line.highlighted || '&#8203;'" />
+                        </div>
                       </td>
                     </tr>
                   </template>
@@ -152,16 +174,18 @@
               {{ copyError }}
             </p>
             <p
-              v-if="file.content.length > SOURCE_LIMIT"
+              v-if="(formattedCode?.source ?? file.content).length > SOURCE_LIMIT"
               class="workspace-notice"
             >
               {{ t("workspace.truncated") }}
             </p>
             <div class="source-scroll" tabindex="0" :aria-label="file.path">
-              <pre class="source-gutter" aria-hidden="true">{{
-                lineNumbers
-              }}</pre>
-              <pre class="source-code"><code v-html="highlighted" /></pre>
+              <div class="source-lines">
+                <div v-for="(line, index) in highlightedLines" :key="index" class="source-row">
+                  <span class="source-gutter" aria-hidden="true">{{ index + 1 }}</span>
+                  <pre class="source-code"><code v-html="line || '&#8203;'" /></pre>
+                </div>
+              </div>
             </div>
           </template>
           <template v-else-if="showFilePreview && file">
@@ -197,8 +221,8 @@
             </div>
           </template>
           <footer v-if="file" class="file-status">
-            <span>{{ t(showFilePreview ? "workspace.previewNote" : "workspace.readOnly") }}</span>
-            <span v-if="!showFilePreview">{{ t("workspace.lines", { count: lineCount }) }}</span>
+            <span>{{ t(imageSource ? "workspace.imagePreview" : showFilePreview ? "workspace.previewNote" : "workspace.readOnly") }}</span>
+            <span v-if="!showFilePreview && !imageSource">{{ t("workspace.lines", { count: lineCount }) }}</span>
           </footer>
         </div>
       </div>
@@ -314,9 +338,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import hljs from "highlight.js/lib/common";
+import PanelResizeHandle from "@/components/PanelResizeHandle.vue";
+import { formatWorkspaceCode, highlightWorkspaceLines, trimHighlightedIndent } from "@/utils/workspaceCode";
 import { marked } from "marked";
 import { sanitizeMarkdownHTML } from "@/utils/security";
 import {
@@ -438,6 +463,13 @@ const copied = ref(false),
   previewVersion = ref(0);
 type FileView = 'source' | 'diff' | 'preview';
 const fileView = ref<FileView>('source');
+const imageError = ref(false);
+const imageSource = computed(() => {
+  const current = file.value;
+  if (current?.encoding !== 'base64' || !/^image\/(?:png|jpeg|gif|webp|bmp|x-icon|avif)$/.test(current.mime_type || '')) return '';
+  return `data:${current.mime_type};base64,${current.content}`;
+});
+watch(imageSource, () => { imageError.value = false; });
 const { changes: fileChanges, activeId: activeFileChange } = useFileChanges();
 const canPreviewFile = computed(
   () => Boolean(file.value && canPreviewSource(file.value.path)),
@@ -447,17 +479,60 @@ const currentChange = computed(() => {
   const path = file.value?.path;
   return path ? findFileChange(fileChanges.value, path) : undefined;
 });
-/** The unified diff for the file on screen; null when there is nothing to show. */
+const formattedCode = ref<{ source: string } | null>(null);
+watch(
+  () => [props.sessionId, file.value?.path, file.value?.encoding === 'base64' ? undefined : file.value?.content] as const,
+  async ([, path, source], _, onCleanup) => {
+    let cancelled = false;
+    onCleanup(() => { cancelled = true; });
+    formattedCode.value = null;
+    if (!path || source === undefined) return;
+    const display = await formatWorkspaceCode(source, path);
+    if (!cancelled) formattedCode.value = { source: display };
+  },
+  { immediate: true, flush: 'sync' },
+);
+// Diff identity and line numbers always come from the recorded original text.
+// Async source formatting must not turn a replacement into a pure insertion.
+const diffSources = computed(() => {
+  const change = currentChange.value;
+  return { before: change?.before, after: change?.after };
+});
+/** The unified diff for the displayed file; null when there is nothing to show. */
 const currentDiff = computed(() => {
+  if (imageSource.value) return null;
   const change = currentChange.value;
   if (!change || change.before === undefined || change.after === undefined)
     return null;
   if (change.before === change.after) return null;
-  const diff = buildUnifiedDiff(change.before, change.after);
+  const diff = buildUnifiedDiff(diffSources.value.before!, diffSources.value.after!);
   return diff.empty ? null : diff;
 });
 const hasFileDiff = computed(() => currentDiff.value !== null);
-const diffHunks = computed(() => currentDiff.value?.hunks ?? []);
+const diffHunks = computed(() => {
+  const hunks = currentDiff.value?.hunks ?? [];
+  if (!hunks.length) return [];
+  const path = file.value?.path || '';
+  const before = highlightWorkspaceLines(diffSources.value.before || '', path);
+  const after = highlightWorkspaceLines(diffSources.value.after || '', path);
+  return hunks.map(hunk => {
+    // Fold only indentation shared by every nonblank line in this hunk.
+    // Relative indentation, highlighted multiline tokens and source numbers stay intact.
+    const indents = hunk.lines.filter(line => line.content.trim())
+      .map(line => /^[\t ]*/.exec(line.content)![0]);
+    let commonIndent = indents[0] || '';
+    for (const indent of indents) {
+      while (commonIndent && !indent.startsWith(commonIndent)) commonIndent = commonIndent.slice(0, -1);
+    }
+    return { ...hunk, lines: hunk.lines.map(line => ({
+      ...line,
+      highlighted: trimHighlightedIndent(
+        (line.type === 'del' ? before[(line.oldNumber || 1) - 1] : after[(line.newNumber || 1) - 1]) || '',
+        commonIndent.length,
+      ),
+    })) };
+  });
+});
 // The color difference is part of the code pane itself, Codex-style: the moment
 // a file has a recorded change we render its diff inline, with no separate
 // "diff" mode to switch into. Only the explicit preview view replaces it.
@@ -474,8 +549,8 @@ const showViewSwitch = computed(
 );
 const showFilePreview = computed(
   () =>
-    props.tab === 'preview' ||
-    (fileView.value === 'preview' && canPreviewFile.value),
+    !imageSource.value && (props.tab === 'preview' ||
+    (fileView.value === 'preview' && canPreviewFile.value)),
 );
 const command = ref(""),
   running = ref(false),
@@ -492,40 +567,17 @@ const treeRequests = new Map<string, number>();
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 const busy = computed(() => pendingPaths.value.length > 0);
 const content = computed(
-  () => file.value?.content.slice(0, SOURCE_LIMIT) || "",
+  () => file.value?.encoding === 'base64' ? '' : (formattedCode.value?.source ?? file.value?.content ?? '').slice(0, SOURCE_LIMIT),
 );
-const language = computed(
-  () =>
-    ({
-      js: "javascript",
-      ts: "typescript",
-      py: "python",
-      md: "markdown",
-      sh: "bash",
-      html: "html",
-      svg: "xml",
-      yml: "yaml",
-    })[file.value?.path.split(".").pop() || ""] ||
-    file.value?.path.split(".").pop() ||
-    "text",
+const lineCount = computed(() =>
+  (showFileDiff.value ? diffSources.value.after || '' : content.value).split("\n").length,
 );
-const lineCount = computed(() => content.value.split("\n").length);
-const lineNumbers = computed(() =>
-  Array.from({ length: lineCount.value }, (_, i) => i + 1).join("\n"),
-);
+const highlightedLines = computed(() => highlightWorkspaceLines(content.value, file.value?.path || ''));
 const fileParts = computed(() => {
   const path =
     relativePath(file.value?.path || "") ||
     (file.value?.path || "").replaceAll("\\", "/");
   return path.split("/").filter(Boolean);
-});
-const highlighted = computed(() => {
-  if (content.value.length < 60_000 && hljs.getLanguage(language.value))
-    return hljs.highlight(content.value, { language: language.value }).value;
-  return content.value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
 });
 
 function visibleChildren(path: string): ProgrammingNode[] {
@@ -645,6 +697,7 @@ async function openFile(path: string, view?: FileView) {
     const data = await api.file(props.sessionId, path);
     if (epoch !== generation || request !== fileRequest) return;
     file.value = data;
+    imageError.value = false;
     if (view) fileView.value = view;
     saveOpenFile(path);
     if (showFilePreview.value) void preparePreview();
@@ -666,6 +719,73 @@ async function openFile(path: string, view?: FileView) {
 function openFileStorageKey(sessionId: string) {
   return `weknora.workspace.openFile.${sessionId}`;
 }
+
+// --- 文件树 / 代码区之间的可伸缩分隔条 --------------------------------
+// The sandbox panel is already resizable; the code side of it is too. Dragging
+// the divider trades width between the project tree and the code/diff view so
+// a wide diff is readable without widening the whole panel.
+const TREE_MIN_WIDTH = 132;
+const TREE_MAX_WIDTH = 420;
+// Never let the tree eat the code pane: the viewer keeps at least this much.
+const TREE_CODE_MIN_WIDTH = 200;
+const TREE_WIDTH_STORAGE_KEY = "weknora.workspace.treeWidth";
+const treeRef = ref<HTMLElement | null>(null);
+const measuredTreeWidth = ref(0);
+// 0 keeps the responsive CSS default until the reader drags the divider.
+const treeWidth = ref(storedTreeWidth());
+let treeDragStart = 0;
+
+function storedTreeWidth(): number {
+  try {
+    const raw = Number(localStorage.getItem(TREE_WIDTH_STORAGE_KEY));
+    if (!Number.isFinite(raw) || raw <= 0) return 0;
+    return Math.min(TREE_MAX_WIDTH, Math.max(TREE_MIN_WIDTH, Math.round(raw)));
+  } catch {
+    return 0;
+  }
+}
+
+const treeStyle = computed(() =>
+  treeWidth.value ? { width: `${treeWidth.value}px` } : undefined,
+);
+
+function clampTreeWidth(width: number): number {
+  const body = treeRef.value?.parentElement;
+  const cap = body
+    ? Math.max(TREE_MIN_WIDTH, body.clientWidth - TREE_CODE_MIN_WIDTH)
+    : TREE_MAX_WIDTH;
+  return Math.min(TREE_MAX_WIDTH, cap, Math.max(TREE_MIN_WIDTH, Math.round(width)));
+}
+
+function currentTreeWidth(): number {
+  return (
+    treeWidth.value ||
+    measuredTreeWidth.value ||
+    treeRef.value?.getBoundingClientRect().width ||
+    TREE_MIN_WIDTH
+  );
+}
+
+function startTreeResize() {
+  treeDragStart = currentTreeWidth();
+}
+
+function resizeTree(delta: number) {
+  treeWidth.value = clampTreeWidth(treeDragStart + delta);
+}
+
+function endTreeResize() {
+  if (!treeWidth.value) return;
+  try {
+    localStorage.setItem(TREE_WIDTH_STORAGE_KEY, String(treeWidth.value));
+  } catch {
+    // localStorage may be unavailable in private mode; the drag still works.
+  }
+}
+
+onMounted(() => {
+  measuredTreeWidth.value = treeRef.value?.getBoundingClientRect().width || 0;
+});
 
 // Remember the file the user last had open so a reload restores it instead of
 // falling back to the agent's last signal or the first file in the tree.
@@ -981,7 +1101,10 @@ button {
 
 .file-tree {
   width: clamp(132px, 28%, 220px);
+  // The divider can widen the tree, but the code view always keeps room.
+  max-width: calc(100% - 200px);
   flex-shrink: 0;
+  position: relative;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -1179,6 +1302,7 @@ button {
 }
 .diff-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font: var(--app-text-md)/1.5 var(--app-font-family-mono, monospace);
   tab-size: 4;
@@ -1195,10 +1319,9 @@ button {
   &.is-add { background: color-mix(in srgb, #2da44e 22%, transparent); }
   &.is-del { background: color-mix(in srgb, #cf222e 22%, transparent); }
 }
+.diff-number-column { width: 38px; }
 .diff-gutter {
-  width: 1%;
-  min-width: 40px;
-  padding: 0 8px;
+  padding: 0 5px;
   text-align: right;
   vertical-align: top;
   white-space: nowrap;
@@ -1209,15 +1332,20 @@ button {
 .diff-row.is-add .diff-gutter:first-child { box-shadow: inset 2px 0 0 #2da44e; }
 .diff-row.is-del .diff-gutter:first-child { box-shadow: inset 2px 0 0 #cf222e; }
 .diff-code {
-  padding: 0 16px 0 10px;
-  white-space: pre;
+  padding: 0 10px 0 6px;
   vertical-align: top;
+}
+.diff-line {
+  display: grid;
+  grid-template-columns: 1.2em minmax(0, 1fr);
+}
+.diff-text {
+  white-space: pre-wrap;
   word-break: normal;
-  overflow-wrap: normal;
+  overflow-wrap: anywhere;
 }
 .diff-sign {
-  display: inline-block;
-  width: 1.2em;
+  white-space: pre;
   color: var(--td-text-color-disabled);
   user-select: none;
 }
@@ -1225,8 +1353,6 @@ button {
 .diff-row.is-del .diff-sign { color: #cf222e; }
 .source-scroll {
   overflow: auto;
-  display: flex;
-  align-items: flex-start;
   flex: 1;
   min-height: 0;
   background: var(--td-bg-color-secondarycontainer);
@@ -1239,18 +1365,26 @@ button {
   }
 }
 
+.source-lines { width: 100%; min-width: 0; }
+.source-row { display: grid; grid-template-columns: 4.5em minmax(0, 1fr); }
 .source-gutter {
+  font: var(--app-text-md)/1.4 var(--app-font-family-mono, monospace);
   color: var(--td-text-color-disabled);
   text-align: right;
   padding: 0 14px 0 16px;
   user-select: none;
-  position: sticky;
-  left: 0;
   background: var(--td-bg-color-secondarycontainer);
 }
 
 .source-code {
-  padding: 0 24px 0 8px;
+  min-width: 0;
+  padding: 0 16px 0 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  code { font: inherit; white-space: inherit; }
+}
+
+.source-code, .diff-code {
 
   :deep(.hljs-keyword),
   :deep(.hljs-doctag),
@@ -1281,6 +1415,9 @@ button {
   :deep(.hljs-built_in),
   :deep(.hljs-type),
   :deep(.hljs-section),
+  :deep(.hljs-selector-tag),
+  :deep(.hljs-selector-id),
+  :deep(.hljs-selector-pseudo),
   :deep(.hljs-selector-class),
   :deep(.hljs-variable) {
     color: var(--ws-code-entity);
@@ -1290,7 +1427,7 @@ button {
   :deep(.hljs-attribute),
   :deep(.hljs-property),
   :deep(.hljs-tag) {
-    color: inherit;
+    color: var(--ws-code-accent);
   }
 }
 
@@ -1382,6 +1519,25 @@ button {
 
 :global(:root[theme-mode="dark"]) .conversation-workspace .file-tree__hint {
   color: var(--td-text-color-disabled);
+}
+
+.image-preview {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: var(--td-bg-color-secondarycontainer);
+
+  img {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
 }
 
 .preview-stage {

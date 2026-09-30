@@ -2,6 +2,16 @@
 import secrets
 
 
+def project_server_environment():
+    # A dev script may enable --open itself. Keep project servers disconnected
+    # from the user's desktop even when the sandbox has a graphical session.
+    env = dict(os.environ)
+    for name in ('DISPLAY', 'WAYLAND_DISPLAY', 'XAUTHORITY', 'DBUS_SESSION_BUS_ADDRESS'):
+        env.pop(name, None)
+    env['BROWSER'] = 'none'
+    return env
+
+
 def web_preview(options):
     root = Path(options['root']).resolve()
     state_dir = Path.home() / '.cache/weknora-preview' / hashlib.sha256(str(root).encode()).hexdigest()[:16]
@@ -31,7 +41,7 @@ def web_preview(options):
             if not alive(pid):
                 directory, command = project
                 with log_path.open('w') as log:
-                    process = subprocess.Popen(command, cwd=directory, stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True, env={**os.environ, 'BROWSER': 'none'})
+                    process = subprocess.Popen(command, cwd=directory, stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True, env=project_server_environment())
                 pid_file.write_text(str(process.pid))
             deadline = time.monotonic() + 25
             while time.monotonic() < deadline:

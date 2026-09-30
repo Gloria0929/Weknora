@@ -3,6 +3,8 @@ import test from 'node:test'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 import ts from 'typescript'
+import { buildUnifiedDiff } from '../../utils/unifiedDiff.ts'
+import { formatWorkspaceCode, highlightWorkspaceLines, trimHighlightedIndent } from '../../utils/workspaceCode.ts'
 import { computed, effectScope, nextTick, reactive, ref, watch } from 'vue'
 
 // Exercise the component's state transitions without a browser or a sandbox.
@@ -20,16 +22,17 @@ function mount(gateway = {}, seed = {}) {
   // directly so a live edit can be replayed without the SSE handler.
   const changes = seed.changes || ref([]), activeId = seed.activeId || ref(null)
   const scope = effectScope()
-  const state = scope.run(() => vm.runInNewContext(`${compiled}; ({ file, nodes, directory, error, busy, command, running, runs, runError, openFile, loadDirectory, refresh, runTests, askToFix, reconcileMissingFile, treeRows, toggleDirectory, childrenByPath, expandedPaths, fileGlyph, fileView, showFilePreview, showFileDiff, showViewSwitch, previewHtml, previewLoading, currentDiff, hasFileDiff })`, {
+  const state = scope.run(() => vm.runInNewContext(`${compiled}; ({ file, nodes, directory, error, busy, command, running, runs, runError, openFile, loadDirectory, refresh, runTests, askToFix, reconcileMissingFile, treeRows, toggleDirectory, childrenByPath, expandedPaths, fileGlyph, fileView, showFilePreview, showFileDiff, showViewSwitch, previewHtml, previewLoading, currentDiff, diffHunks, hasFileDiff, formattedCode, content, highlightedLines, treeWidth, treeStyle, startTreeResize, resizeTree, endTreeResize, TREE_MIN_WIDTH, TREE_MAX_WIDTH })`, {
     computed, ref, watch, defineProps: () => props, withDefaults: value => value,
     defineEmits: () => (...args) => emitted.push(args), useI18n: () => ({ t: (key, values) => key + (values ? JSON.stringify(values) : '') }),
-    onBeforeUnmount: fn => cleanup.push(fn), setTimeout, clearTimeout, Blob,
-    hljs: { getLanguage: () => false },
+    onBeforeUnmount: fn => cleanup.push(fn), onMounted: fn => cleanup.push(fn), setTimeout, clearTimeout, Blob,
+    formatWorkspaceCode: seed.formatWorkspaceCode || (async source => source),
+    highlightWorkspaceLines, trimHighlightedIndent,
     canPreviewSource: path => /\.(?:html?|svg|md|markdown)$/i.test(path),
     buildWorkspacePreview: async (path, content) => ({ html: content, warnings: [] }),
     useFileChanges: () => ({ changes, activeId, addChange() {}, clearChanges() {}, hasChanges: () => changes.value.length > 0 }),
     findFileChange: (list, path) => list.find(change => change.path === path || path.endsWith(`/${change.path}`)),
-    buildUnifiedDiff: (before, after) => ({ empty: before === after, hunks: [] }),
+    buildUnifiedDiff,
   }))
   return { props, state, emitted, changes, activeId, unmount: () => { cleanup.forEach(fn => fn()); scope.stop() } }
 }
@@ -144,7 +147,7 @@ test('a file the backend no longer serves leaves the tree instead of a dead row'
 test('the file tree stays visible alongside the per-file toolbar', () => {
   assert.doesNotMatch(source, /workspace-toolbar/)
   assert.doesNotMatch(source, /treeOpen/)
-  assert.match(source, /<aside class="file-tree"/)
+  assert.match(source, /<aside[^>]*class="file-tree"/)
   assert.doesNotMatch(source, /<aside[^>]*v-if/)
 })
 
@@ -268,6 +271,31 @@ test('the code pane offers only source and preview, never a diff mode button', (
   assert.doesNotMatch(source, /v-if="hasFileDiff" type="button"/)
 })
 
+test('the code side of the panel is resizable by dragging the tree divider', () => {
+  // The sandbox panel already resizes; the code/diff side gets the same grip so
+  // a wide diff fits without widening the whole panel.
+  assert.match(source, /<PanelResizeHandle[\s\S]*?edge="right"/)
+  assert.match(source, /:style="treeStyle"/)
+  assert.match(source, /max-width: calc\(100% - 200px\)/)
+  const view = mount()
+  // Nothing stored yet: the responsive CSS default owns the width.
+  assert.equal(view.state.treeWidth.value, 0)
+  assert.equal(view.state.treeStyle.value, undefined)
+  // Deltas are measured from the width the drag started at, matching the
+  // pointer handler that feeds this splitter.
+  view.state.startTreeResize()
+  view.state.resizeTree(48)
+  assert.equal(view.state.treeWidth.value, 180)
+  // The style object comes from the vm realm, so compare the field, not the prototype.
+  assert.equal(view.state.treeStyle.value.width, '180px')
+  // Dragging past the ceiling leaves the code pane its minimum room.
+  view.state.resizeTree(100000)
+  assert.equal(view.state.treeWidth.value, view.state.TREE_MAX_WIDTH)
+  view.state.resizeTree(-100000)
+  assert.equal(view.state.treeWidth.value, view.state.TREE_MIN_WIDTH)
+  view.unmount()
+})
+
 test('the diff renders inside the code view, never as a separate sidebar tab', () => {
   const panel = readFileSync(new URL('../chat/SandboxSidePanel.vue', import.meta.url), 'utf8')
   assert.match(source, /class="diff-table"/)
@@ -275,4 +303,52 @@ test('the diff renders inside the code view, never as a separate sidebar tab', (
   // The sidebar keeps Preview/Source/Tests/Artifacts/Terminal — no Changes tab.
   assert.doesNotMatch(panel, /id: 'changes'/)
   assert.doesNotMatch(panel, /tabChanges|changesTab/)
+})
+
+
+test('late formatting cannot replace the current file or conversation', async () => {
+  const pending = deferred()
+  const view = mount({}, { formatWorkspaceCode: source => source === 'old.ts' ? pending.promise : Promise.resolve('formatted ' + source) })
+  await view.state.openFile('old.ts')
+  await view.state.openFile('new.ts')
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(view.state.content.value, 'formatted new.ts')
+  pending.resolve('stale old file')
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(view.state.content.value, 'formatted new.ts')
+  view.props.sessionId = 'b'; await nextTick()
+  assert.equal(view.state.content.value, '')
+  view.unmount()
+})
+
+
+test('source formatting leaves the original diff and its line numbers intact', async () => {
+  const before = '{"count":1}', after = '{"count":2}'
+  // Warm the lazy parser so the assertion only waits for the component update.
+  await formatWorkspaceCode(before, 'data.json')
+  const changes = ref([{ id: 'edit', path: 'data.json', before, after }])
+  const view = mount({ file: async () => ({ ...file('data.json'), content: after }) }, { changes, formatWorkspaceCode })
+  await view.state.openFile('data.json')
+  await new Promise(resolve => setImmediate(resolve))
+  assert.match(view.state.content.value, /\n  "count": 2\n/)
+  assert.equal(view.state.file.value.content, after)
+  const rows = view.state.diffHunks.value.flatMap(hunk => hunk.lines)
+  assert.match(rows.find(row => row.type === 'add').highlighted, /hljs-number.*2/)
+  assert.match(rows.find(row => row.type === 'del').highlighted, /hljs-number.*1/)
+  assert.equal(rows.find(row => row.type === 'add').newNumber, 1)
+  assert.equal(rows.find(row => row.type === 'del').content, before)
+  assert.equal(rows.find(row => row.type === 'add').content, after)
+  view.unmount()
+})
+
+test('formatting does not erase whitespace-only diffs', async () => {
+  const before = 'const x=1;', after = 'const x = 1;'
+  const changes = ref([{ id: 'edit', path: 'app.js', before, after }])
+  const view = mount({ file: async () => ({ ...file('app.js'), content: after }) }, { changes, formatWorkspaceCode: async () => after })
+  await view.state.openFile('app.js')
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(view.state.hasFileDiff.value, true)
+  const rows = view.state.currentDiff.value.hunks.flatMap(hunk => hunk.lines)
+  assert.equal(rows.find(row => row.type === 'del').content, before)
+  view.unmount()
 })

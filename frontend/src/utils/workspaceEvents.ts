@@ -194,7 +194,7 @@ export function collectWorkspaceRuns(messages: Array<Record<string, any>>): Work
     })).slice(-20).reverse()
 }
 
-/** Restoring a loaded conversation follows the same "finished turn" rule as a live one. */
+/** Restored conversations open preview while retaining the latest workspace path. */
 export function lastWorkspaceSignal(messages: Array<Record<string, any>>): WorkspacePanelDecision | null {
   for (const message of [...messages].reverse()) {
     const signals: WorkspaceSignal[] = []
@@ -204,7 +204,7 @@ export function lastWorkspaceSignal(messages: Array<Record<string, any>>): Works
       if (signal) signals.push(signal)
     }
     const decision = completedWorkspacePanel(signals)
-    if (decision) return decision
+    if (decision) return { ...decision, tab: 'preview' }
   }
   return null
 }
