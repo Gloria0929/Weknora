@@ -664,12 +664,12 @@ onMounted(async () => {
   display: flex;
   min-height: 100dvh;
   width: 100%;
-  background: #f4f7f4;
+  background: var(--td-bg-color-page);
   font-family: var(--app-font-family);
   overflow: hidden;
 }
 
-/* ---------- 左侧品牌面板 ---------- */
+/* ---------- 左侧品牌面板（始终为暗色主题）---------- */
 .brand-panel {
   position: relative;
   flex: 0 0 46%;
@@ -677,12 +677,12 @@ onMounted(async () => {
   background:
     radial-gradient(
       circle at 82% 14%,
-      rgba(29, 205, 125, 0.2),
+      color-mix(in srgb, var(--td-brand-color) 32%, transparent),
       transparent 32%
     ),
     radial-gradient(
       circle at 14% 88%,
-      rgba(20, 143, 107, 0.16),
+      color-mix(in srgb, var(--td-brand-color-active) 24%, transparent),
       transparent 36%
     ),
     #0c1513;
@@ -719,7 +719,7 @@ onMounted(async () => {
   height: 480px;
   top: -180px;
   right: -160px;
-  background: rgba(16, 185, 129, 0.28);
+  background: color-mix(in srgb, var(--td-brand-color) 38%, transparent);
 }
 
 .brand-panel__glow--bottom {
@@ -727,7 +727,7 @@ onMounted(async () => {
   height: 420px;
   bottom: -200px;
   left: -120px;
-  background: rgba(20, 184, 166, 0.22);
+  background: color-mix(in srgb, var(--td-brand-color-active) 30%, transparent);
 }
 
 .brand-panel__inner {
@@ -754,12 +754,12 @@ onMounted(async () => {
   width: 38px;
   height: 38px;
   border-radius: var(--app-radius-xl);
-  background: #d6f7e4;
+  background: var(--td-brand-color-light);
   color: #0c1513;
   font-weight: 800;
   font-size: var(--app-text-4xl);
   letter-spacing: -0.7px;
-  box-shadow: 0 0 0 6px rgba(214, 247, 228, 0.08);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--td-brand-color-light) 8%, transparent);
 }
 
 .brand-logo__text {
@@ -778,7 +778,7 @@ onMounted(async () => {
 }
 
 .brand-panel__eyebrow {
-  color: rgba(167, 243, 208, 0.68);
+  color: color-mix(in srgb, var(--td-brand-color-light) 60%, rgba(255,255,255,0.6));
   margin-bottom: 74px;
 }
 
@@ -828,8 +828,8 @@ onMounted(async () => {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: rgba(16, 185, 129, 0.16);
-  color: #34d399;
+  background: color-mix(in srgb, var(--td-brand-color) 22%, transparent);
+  color: var(--td-brand-color-hover);
   flex-shrink: 0;
 
   svg {
@@ -869,8 +869,8 @@ onMounted(async () => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #34d399;
-  box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.1);
+  background: var(--td-brand-color-hover);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--td-brand-color-hover) 12%, transparent);
 }
 
 .brand-footer {
@@ -879,7 +879,7 @@ onMounted(async () => {
   color: rgba(241, 245, 249, 0.38);
 }
 
-/* ---------- 右侧表单区 ---------- */
+/* ---------- 右侧表单区（亮暗色自适应）---------- */
 .form-panel {
   flex: 1;
   display: flex;
@@ -888,13 +888,7 @@ onMounted(async () => {
   position: relative;
   padding: 48px clamp(24px, 6vw, 96px);
   box-sizing: border-box;
-  background:
-    radial-gradient(
-      circle at 82% 18%,
-      rgba(211, 246, 225, 0.62),
-      transparent 28%
-    ),
-    #f7faf7;
+  background: var(--td-bg-color-page);
 
   &::after {
     content: "";
@@ -903,7 +897,7 @@ onMounted(async () => {
     bottom: 10%;
     width: 160px;
     height: 160px;
-    border: 1px solid rgba(18, 93, 59, 0.08);
+    border: 1px solid var(--td-component-stroke);
     border-radius: var(--app-radius-xl);
     transform: rotate(18deg);
     pointer-events: none;
@@ -920,11 +914,10 @@ onMounted(async () => {
 .auth-card {
   width: 100%;
   padding: 40px 42px 36px;
-  border: 1px solid rgba(15, 61, 40, 0.1);
+  border: 1px solid var(--td-component-stroke);
   border-radius: var(--app-radius-pill);
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 22px 60px rgba(16, 54, 35, 0.08);
-  backdrop-filter: blur(18px);
+  background: var(--td-bg-color-container);
+  box-shadow: 0 4px 20px rgba(40, 38, 32, .035);
   box-sizing: border-box;
 }
 
@@ -933,7 +926,7 @@ onMounted(async () => {
 }
 
 .auth-card__eyebrow {
-  color: #138653;
+  color: var(--td-brand-color);
   margin-bottom: 18px;
 }
 
@@ -941,14 +934,14 @@ onMounted(async () => {
   font-size: var(--app-text-4xl);
   font-weight: 700;
   letter-spacing: -1px;
-  color: #0f172a;
+  color: var(--td-text-color-primary);
   margin: 0 0 8px 0;
   line-height: 1.25;
 }
 
 .auth-card__subtitle {
   font-size: var(--app-text-lg);
-  color: #64748b;
+  color: var(--td-text-color-secondary);
   margin: 0;
   line-height: 1.5;
 }
@@ -957,9 +950,9 @@ onMounted(async () => {
   margin: 0 0 24px 0;
   padding: 10px 14px;
   border-radius: var(--app-radius-xl);
-  background: #f0faf3;
-  border: 1px solid #c7ecd4;
-  color: #047857;
+  background: var(--td-bg-color-secondarycontainer);
+  border: 1px solid var(--td-component-stroke);
+  color: var(--td-text-color-secondary);
   font-size: var(--app-text-md);
   line-height: 1.5;
 }
@@ -968,11 +961,11 @@ onMounted(async () => {
   margin-top: 24px;
   text-align: center;
   font-size: var(--app-text-base);
-  color: #64748b;
+  color: var(--td-text-color-secondary);
 }
 
 .auth-link {
-  color: #059669;
+  color: var(--td-brand-color);
   text-decoration: none;
   font-weight: 600;
   margin-left: 4px;
@@ -987,7 +980,7 @@ onMounted(async () => {
   :deep(.t-form-item__label) {
     font-size: var(--app-text-base);
     font-weight: 500;
-    color: #334155;
+    color: var(--td-text-color-primary);
     margin-bottom: 6px;
     padding: 0;
   }
@@ -998,19 +991,19 @@ onMounted(async () => {
 
   :deep(.t-input) {
     border-radius: var(--app-radius-xl);
-    border-color: #dce7df;
-    background: rgba(255, 255, 255, 0.72);
+    border-color: var(--td-component-border);
+    background: var(--td-bg-color-container);
     transition:
       border-color var(--app-motion-base) ease,
       box-shadow 0.18s ease;
 
     &:hover {
-      border-color: #94a3b8;
+      border-color: var(--td-text-color-placeholder);
     }
 
     &:focus-within {
-      border-color: #10b981;
-      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.14);
+      border-color: var(--td-brand-color);
+      box-shadow: 0 0 0 3px var(--td-brand-color-focus);
     }
   }
 
@@ -1032,48 +1025,46 @@ onMounted(async () => {
 }
 
 .btn--primary {
-  background: #17201d !important;
-  border-color: #17201d !important;
+  background: var(--td-text-color-primary) !important;
+  border-color: var(--td-text-color-primary) !important;
   border: none;
-  color: #ffffff !important;
+  color: var(--td-bg-color-container) !important;
   margin-top: 30px;
 
   &:hover,
   &:focus {
-    background: #26312d !important;
-    border-color: #26312d !important;
-    color: #ffffff !important;
+    opacity: 0.88;
+    color: var(--td-bg-color-container) !important;
     transform: translateY(-1px);
   }
 
   &:active {
-    background: #0d1210 !important;
-    border-color: #0d1210 !important;
-    color: #ffffff !important;
+    opacity: 0.78;
+    color: var(--td-bg-color-container) !important;
     transform: translateY(0);
   }
 }
 
 .btn--ghost {
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid #dce7df;
-  color: #0f172a;
+  background: var(--td-bg-color-container);
+  border: 1px solid var(--td-component-border);
+  color: var(--td-text-color-primary);
 
   &:hover {
-    border-color: #10b981;
-    color: #047857;
-    background: #f0fdf4;
+    border-color: var(--td-brand-color);
+    color: var(--td-brand-color);
+    background: var(--td-bg-color-secondarycontainer);
   }
 }
 
 .btn--oidc {
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid #dce7df;
-  color: #334155;
+  background: var(--td-bg-color-container);
+  border: 1px solid var(--td-component-border);
+  color: var(--td-text-color-secondary);
 
   &:hover {
-    border-color: #94a3b8;
-    background: #f8fafc;
+    border-color: var(--td-text-color-placeholder);
+    background: var(--td-bg-color-secondarycontainer-hover);
   }
 }
 
@@ -1081,14 +1072,14 @@ onMounted(async () => {
   position: relative;
   text-align: center;
   margin: 22px 0 18px;
-  color: #94a3b8;
+  color: var(--td-text-color-placeholder);
   font-size: var(--app-text-md);
 
   span {
     position: relative;
     z-index: 1;
     padding: 0 12px;
-    background: #ffffff;
+    background: var(--td-bg-color-container);
   }
 
   &::before {
@@ -1097,7 +1088,7 @@ onMounted(async () => {
     left: 0;
     right: 0;
     top: 50%;
-    border-top: 1px solid #e2e8f0;
+    border-top: 1px solid var(--td-component-stroke);
   }
 }
 
@@ -1109,15 +1100,15 @@ onMounted(async () => {
   padding: 12px 14px;
   margin-bottom: 24px;
   border-radius: var(--app-radius-lg);
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
+  background: var(--td-bg-color-secondarycontainer);
+  border: 1px solid var(--td-component-stroke);
 }
 
 .invite-banner__icon {
   margin-top: 2px;
   font-size: var(--app-text-2xl);
   flex-shrink: 0;
-  color: #059669;
+  color: var(--td-brand-color);
 }
 
 .invite-banner__text {
@@ -1131,19 +1122,19 @@ onMounted(async () => {
   font-size: var(--app-text-base);
   font-weight: 600;
   line-height: 1.4;
-  color: #065f46;
+  color: var(--td-text-color-primary);
 }
 
 .invite-banner__hint {
   font-size: var(--app-text-md);
-  color: #047857;
+  color: var(--td-text-color-secondary);
   line-height: 1.5;
 }
 
 .invite-banner--error {
-  background: #fef2f2;
-  border-color: #fecaca;
-  color: #b91c1c;
+  background: var(--td-error-color-light);
+  border-color: color-mix(in srgb, var(--td-error-color) 30%, transparent);
+  color: var(--td-error-color);
   font-size: var(--app-text-base);
 }
 
@@ -1234,124 +1225,14 @@ onMounted(async () => {
 </style>
 
 <style lang="less">
+/* 暗色模式下仅需覆盖品牌面板中不跟随 TDesign 变量的部分 */
 html[theme-mode="dark"] {
-  .auth-page,
   .form-panel {
-    background: #0b1110;
+    background: var(--td-bg-color-page);
   }
 
-  .form-panel {
-    background:
-      radial-gradient(
-        circle at 82% 18%,
-        rgba(26, 104, 67, 0.18),
-        transparent 28%
-      ),
-      #0b1110;
-  }
-
-  .auth-card {
-    background: rgba(17, 27, 23, 0.9);
-    border-color: rgba(148, 224, 179, 0.14);
-    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.24);
-  }
-
-  .auth-card__eyebrow {
-    color: #6ee7b7;
-  }
-
-  .auth-card__title {
-    color: #f1f5f9;
-  }
-
-  .auth-card__subtitle,
-  .auth-card__footer {
-    color: #94a3b8;
-  }
-
-  .auth-card__hint {
-    background: rgba(16, 185, 129, 0.12);
-    border-color: rgba(16, 185, 129, 0.3);
-    color: #6ee7b7;
-  }
-
-  .auth-link {
-    color: #34d399;
-  }
-
-  .auth-divider {
-    color: #64748b;
-
-    span {
-      background: #111b17;
-    }
-
-    &::before {
-      border-color: #1e2530;
-    }
-  }
-
-  .auth-form .t-form-item__label {
-    color: #cbd5e1;
-  }
-
-  .auth-form .t-input {
-    background: #161a21;
-    border-color: #1e2530;
-    color: #f1f5f9;
-
-    &:hover {
-      border-color: #334155;
-    }
-
-    &:focus-within {
-      border-color: #10b981;
-    }
-  }
-
-  .btn--primary {
-    background: #dce5e0 !important;
-    border-color: #dce5e0 !important;
-    color: #102019 !important;
-
-    &:hover,
-    &:focus {
-      background: #c8d5ce !important;
-      border-color: #c8d5ce !important;
-      color: #102019 !important;
-    }
-
-    &:active {
-      background: #b8c9bf !important;
-      border-color: #b8c9bf !important;
-      color: #102019 !important;
-    }
-  }
-
-  .btn--ghost,
-  .btn--oidc {
-    background: #161a21;
-    border-color: #1e2530;
-    color: #e2e8f0;
-
-    &:hover {
-      border-color: #10b981;
-      color: #6ee7b7;
-      background: #111a22;
-    }
-  }
-
-  .invite-banner {
-    background: rgba(16, 185, 129, 0.1);
-    border-color: rgba(16, 185, 129, 0.28);
-  }
-
-  .invite-banner__title {
-    color: #a7f3d0;
-  }
-
-  .invite-banner__hint {
-    color: #6ee7b7;
+  .brand-panel__eyebrow {
+    color: color-mix(in srgb, var(--td-brand-color) 55%, rgba(255,255,255,0.5));
   }
 
   .brand-panel__meta {

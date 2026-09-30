@@ -2115,7 +2115,7 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--td-component-stroke);
-  box-shadow: 1px 0 0 rgba(0, 0, 0, 0.02);
+  box-shadow: 1px 0 0 color-mix(in srgb, var(--td-text-color-primary) 2%, transparent);
   transition:
     width var(--app-motion-base) ease,
     min-width 0.25s ease;
@@ -2935,7 +2935,7 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
   color: var(--td-text-color-primary);
   rotate: 0deg;
   translate: 0 -1px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--td-text-color-primary) 8%, transparent);
 }
 
 .menu_item:hover .menu-toolbox-stack__item+.menu-toolbox-stack__item {
@@ -2955,7 +2955,7 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
   padding: 0 5px;
   margin-left: 6px;
   border-radius: var(--app-radius-lg);
-  background: rgba(250, 173, 20, 0.2);
+  background: color-mix(in srgb, var(--td-warning-color) 20%, transparent);
   color: var(--td-warning-color);
   font-size: var(--app-text-sm);
   font-weight: 600;

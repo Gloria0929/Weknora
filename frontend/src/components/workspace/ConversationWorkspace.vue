@@ -634,8 +634,8 @@ async function refresh() {
     (loaded.length ? loaded : [""]).map((path) => loadDirectory(path)),
   );
   if (epoch !== generation || request !== refreshRequest || error.value) return;
-  const focus = relativePath(props.focusPath);
-  const candidate = focus || file.value?.path || defaultFile();
+  // 优先刷新当前打开的文件，只有没有打开文件时才 fallback 到 focusPath 或默认文件
+  const candidate = file.value?.path || relativePath(props.focusPath) || defaultFile();
   if (!candidate) return;
   await revealPath(candidate);
   if (epoch !== generation || request !== refreshRequest) return;

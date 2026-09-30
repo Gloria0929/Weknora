@@ -4010,8 +4010,8 @@ const getImgSrc = (url: string) => {
   border-radius: var(--app-radius-xl);
   border: 1px solid var(--td-component-stroke);
   box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.04),
-    0 8px 16px -4px rgba(0, 0, 0, 0.06);
+    0 2px 8px color-mix(in srgb, var(--td-text-color-primary) 4%, transparent),
+    0 8px 16px -4px color-mix(in srgb, var(--td-text-color-primary) 6%, transparent);
 
   &:focus-within {
     border-color: var(--td-brand-color);
@@ -4081,7 +4081,7 @@ const getImgSrc = (url: string) => {
   height: 8px;
   border-radius: 50%;
   background: var(--td-bg-color-secondarycontainer);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--td-text-color-primary) 6%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4147,7 +4147,7 @@ const getImgSrc = (url: string) => {
 }
 
 .mention-chip--faq .mention-chip__icon-wrap {
-  color: var(--weknora-faq-color, #0052d9);
+  color: var(--weknora-faq-color, var(--td-brand-color));
 }
 
 .mention-chip--file {
@@ -4165,15 +4165,15 @@ const getImgSrc = (url: string) => {
 }
 
 .mention-chip--tag .mention-chip__icon-wrap {
-  color: #9f7aea;
+  color: var(--app-accent-purple);
 }
 
 .mention-chip--mcp .mention-chip__icon-wrap {
-  color: #0f766e;
+  color: var(--td-success-color);
 }
 
 .mention-chip--tool .mention-chip__icon-wrap {
-  color: #b7791f;
+  color: var(--td-warning-color);
 }
 
 /* 智能体预配置：虚线边框区分 */
@@ -4435,7 +4435,7 @@ const getImgSrc = (url: string) => {
     position: absolute;
     top: -2px;
     right: -2px;
-    background: #07c05f;
+    background: var(--td-brand-color);
     color: var(--td-text-color-anti);
     font-size: var(--app-text-2xs);
     width: 14px;
@@ -4474,7 +4474,7 @@ const getImgSrc = (url: string) => {
     position: absolute;
     top: -2px;
     right: -2px;
-    background: #07c05f;
+    background: var(--td-brand-color);
     color: var(--td-text-color-anti);
     font-size: var(--app-text-2xs);
     width: 14px;

@@ -677,7 +677,7 @@ onMounted(load)
   box-shadow: inset 0 0 0 1px var(--td-component-stroke);
 }
 
-.storage-backend-drawer--local .setting-drawer__header-icon { background: rgba(70, 70, 70, 0.1); color: #464646; }
+.storage-backend-drawer--local .setting-drawer__header-icon { background: color-mix(in srgb, var(--td-text-color-primary) 10%, transparent); color: var(--td-text-color-secondary); }
 .storage-backend-drawer--minio .setting-drawer__header-icon { background: rgba(225, 38, 38, 0.12); color: #C0382B; }
 .storage-backend-drawer--cos .setting-drawer__header-icon { background: rgba(0, 82, 217, 0.1); color: #0052D9; }
 .storage-backend-drawer--tos .setting-drawer__header-icon { background: rgba(0, 137, 255, 0.12); color: #0089FF; }

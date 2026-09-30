@@ -5216,7 +5216,7 @@ const handleSave = async () => {
 
   50% {
     background-color: var(--td-warning-color-light);
-    box-shadow: inset 0 0 0 1px rgba(237, 123, 47, 0.35);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--td-warning-color) 35%, transparent);
   }
 }
 
@@ -6302,7 +6302,7 @@ const handleSave = async () => {
   }
 
   &::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.1);
+    background: var(--td-scrollbar-color, color-mix(in srgb, var(--td-text-color-primary) 10%, transparent));
     border-radius: 2px;
   }
 
@@ -6355,7 +6355,7 @@ const handleSave = async () => {
   background: var(--td-bg-color-container);
   border: 1px solid var(--td-component-stroke);
   border-radius: var(--app-radius-sm);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--td-shadow-2);
   max-width: 320px;
   max-height: 240px;
   overflow-y: auto;
@@ -6429,7 +6429,7 @@ const handleSave = async () => {
   }
 
   &.agent {
-    background: linear-gradient(135deg, rgba(124, 77, 255, 0.15) 0%, rgba(124, 77, 255, 0.08) 100%);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--app-accent-purple) 15%, transparent) 0%, color-mix(in srgb, var(--app-accent-purple) 8%, transparent) 100%);
     color: var(--td-brand-color);
   }
 }
@@ -6488,13 +6488,13 @@ const handleSave = async () => {
 
   // Document KB
   &.doc-icon {
-    background: rgba(16, 185, 129, 0.1);
+    background: color-mix(in srgb, var(--td-success-color) 10%, transparent);
     color: var(--td-success-color);
   }
 
   // FAQ KB
   &.faq-icon {
-    background: rgba(0, 82, 217, 0.1);
+    background: color-mix(in srgb, var(--td-brand-color) 10%, transparent);
     color: var(--td-brand-color);
   }
 }
@@ -6566,13 +6566,13 @@ const handleSave = async () => {
 }
 
 .tag-rag {
-  color: #165dff;
-  background: rgba(22, 93, 255, 0.1);
+  color: var(--td-brand-color);
+  background: color-mix(in srgb, var(--td-brand-color) 10%, transparent);
 }
 
 .tag-wiki {
-  color: #00b42a;
-  background: rgba(0, 180, 42, 0.1);
+  color: var(--td-success-color);
+  background: color-mix(in srgb, var(--td-success-color) 10%, transparent);
 }
 
 </style>

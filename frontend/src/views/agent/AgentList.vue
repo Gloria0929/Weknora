@@ -1825,7 +1825,7 @@ watch(keyword, () => { collapsedAgentSections.value = new Set() })
   max-width: 90vw;
   height: 100%;
   background: var(--td-bg-color-container);
-  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--td-shadow-2);
   display: flex;
   flex-direction: column;
   font-family: var(--app-font-family);

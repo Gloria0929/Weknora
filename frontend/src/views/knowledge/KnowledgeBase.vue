@@ -2615,7 +2615,7 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
 .document-filter-popup .t-popup__content {
   border: 1px solid var(--td-component-stroke);
   border-radius: var(--app-radius-xl);
-  box-shadow: 0 8px 32px rgb(0 0 0 / 10%);
+  box-shadow: var(--td-shadow-2);
 }
 
 </style>
@@ -3344,7 +3344,7 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
   border-radius: var(--app-radius-md);
   overflow: hidden;
   box-sizing: border-box;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--td-text-color-primary) 6%, transparent);
   background: var(--td-bg-color-container);
   position: relative;
   cursor: pointer;
@@ -3384,7 +3384,7 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
 
 .knowledge-card:hover {
   border-color: color-mix(in srgb, var(--td-component-stroke) 55%, var(--td-brand-color));
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.07);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--td-text-color-primary) 7%, transparent);
 }
 
 </style>
