@@ -33,6 +33,7 @@ const artifactTools = new Set(['write_sandbox_file', 'edit_sandbox_file'])
 const mutationTools = new Set(['write_sandbox_file', 'edit_sandbox_file'])
 
 export interface WorkspaceFileChange {
+  turnId?: string
   path: string
   type: 'added' | 'modified'
   /** Pre-write text; empty string for a brand-new file, undefined when the
@@ -83,6 +84,7 @@ export function workspaceFileChange(
 ): WorkspaceFileChange | null {
   if (chunk.response_type !== 'tool_result') return null
   const levels = toolResultLevels(chunk.data || {})
+  if (levels.some(level => level.success === false)) return null
   const name = String(
     levels.map((level) => level.tool_name).find((value) => typeof value === 'string' && value) || '',
   )
@@ -91,15 +93,17 @@ export function workspaceFileChange(
   if (!result) return null
   const path = String(result.path || result.file_path || '')
   if (!path) return null
-  const before = typeof result.diff_before === 'string' ? result.diff_before : undefined
-  const after = typeof result.diff_after === 'string' ? result.diff_after : undefined
+  // Path and diff bodies may be on different wrapper levels. In particular,
+  // never substitute the current file for a missing pre-edit snapshot.
+  const before = levels.find(level => typeof level.diff_before === 'string')?.diff_before
+  const after = levels.find(level => typeof level.diff_after === 'string')?.diff_after
   return {
     path,
     type: name === 'write_sandbox_file' && before === '' ? 'added' : 'modified',
     before,
     after,
-    addedLines: toCount(result.added_lines),
-    removedLines: toCount(result.removed_lines),
+    addedLines: toCount(levels.find(level => level.added_lines !== undefined)?.added_lines),
+    removedLines: toCount(levels.find(level => level.removed_lines !== undefined)?.removed_lines),
   }
 }
 
@@ -115,12 +119,12 @@ export function collectWorkspaceFileChanges(
   const out: WorkspaceFileChange[] = []
   for (const message of messages) {
     for (const event of message.agentEventStream || []) {
-      if (event.type !== 'tool_call' || event.pending) continue
+      if (event.type !== 'tool_call' || event.pending || event.success === false) continue
       const change = workspaceFileChange({
         response_type: 'tool_result',
         data: { ...(event.tool_data || {}), tool_name: event.tool_name },
       })
-      if (change) out.push(change)
+      if (change) out.push({ ...change, turnId: String(message.request_id || message.id || '') })
     }
   }
   return out

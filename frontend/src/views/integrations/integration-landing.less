@@ -30,22 +30,10 @@
   padding: 16px 18px;
   border-radius: var(--app-radius-lg);
   border: 1px solid var(--td-component-stroke);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--td-brand-color) 10%, var(--td-bg-color-container)) 0%,
-    color-mix(in srgb, var(--td-brand-color) 4%, var(--td-bg-color-container)) 42%,
-    var(--td-bg-color-container) 72%
-  );
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--td-brand-color) 8%, transparent);
+  background: var(--td-bg-color-secondarycontainer);
 
   &--claw {
-    background: linear-gradient(
-      135deg,
-      color-mix(in srgb, @claw-accent 12%, var(--td-bg-color-container)) 0%,
-      color-mix(in srgb, @claw-accent 5%, var(--td-bg-color-container)) 45%,
-      var(--td-bg-color-container) 72%
-    );
-    box-shadow: inset 0 1px 0 color-mix(in srgb, @claw-accent 10%, transparent);
+    background: var(--td-bg-color-secondarycontainer);
   }
 
   &__content {
@@ -55,9 +43,10 @@
 
   &__title {
     margin: 0 0 4px;
-    font-size: var(--app-text-xl);
-    font-weight: 600;
-    line-height: 1.35;
+    font-family: var(--app-font-family-display);
+    font-size: var(--app-text-4xl);
+    font-weight: 500;
+    line-height: 1.4;
     color: var(--td-text-color-primary);
   }
 

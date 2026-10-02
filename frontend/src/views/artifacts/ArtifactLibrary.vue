@@ -466,30 +466,25 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped lang="less">
+@import (reference) '@/components/css/workspace-page.less';
 @import '@/components/css/artifact-filter-tabs.less';
 
 .artifact-library {
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  margin: 0 16px 0 0;
-  padding: 20px 28px 0;
+  .workspace-page();
 }
 
 .header {
+  .workspace-page-header();
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 24px;
   flex-shrink: 0;
 
   .header-title {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 8px;
   }
 
   h2 {
@@ -498,10 +493,7 @@ onBeforeUnmount(() => {
     gap: 8px;
     margin: 0;
     color: var(--td-text-color-primary);
-    font-family: var(--app-font-family);
-    font-size: var(--app-text-4xl);
-    font-weight: 600;
-    line-height: 32px;
+    .workspace-page-title();
   }
 }
 
@@ -539,7 +531,7 @@ onBeforeUnmount(() => {
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  padding: var(--app-space-3) 0 var(--app-space-6);
+  padding: var(--app-space-5) 0 var(--app-space-8);
 }
 
 .result-count {

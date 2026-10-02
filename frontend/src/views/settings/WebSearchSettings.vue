@@ -1044,38 +1044,38 @@ onMounted(async () => {
 
 .websearch-drawer--duckduckgo .setting-drawer__header-icon {
   background: rgba(222, 88, 51, 0.12);
-  color: #DE5833;
+  color: color-mix(in srgb, #DE5833 var(--app-provider-tint), var(--td-text-color-primary));
 }
 .websearch-drawer--bing .setting-drawer__header-icon {
   background: rgba(0, 137, 255, 0.12);
-  color: #0089FF;
+  color: color-mix(in srgb, #0089FF var(--app-provider-tint), var(--td-text-color-primary));
 }
 .websearch-drawer--google .setting-drawer__header-icon {
   background: rgba(66, 133, 244, 0.12);
-  color: #4285F4;
+  color: color-mix(in srgb, #4285F4 var(--app-provider-tint), var(--td-text-color-primary));
 }
 .websearch-drawer--tavily .setting-drawer__header-icon {
   background: rgba(98, 53, 187, 0.12);
-  color: #6235BB;
+  color: color-mix(in srgb, #6235BB var(--app-provider-tint), var(--td-text-color-primary));
 }
 .websearch-drawer--baidu .setting-drawer__header-icon {
   background: rgba(41, 50, 225, 0.12);
-  color: #2932E1;
+  color: color-mix(in srgb, #2932E1 var(--app-provider-tint), var(--td-text-color-primary));
 }
 .websearch-drawer--searxng .setting-drawer__header-icon {
   background: rgba(33, 86, 137, 0.12);
-  color: #215689;
+  color: color-mix(in srgb, #215689 var(--app-provider-tint), var(--td-text-color-primary));
 }
 .websearch-drawer--ollama .setting-drawer__header-icon {
   background: rgba(70, 70, 70, 0.12);
-  color: #464646;
+  color: color-mix(in srgb, #464646 var(--app-provider-tint), var(--td-text-color-primary));
 }
 .websearch-drawer--keenable .setting-drawer__header-icon {
   background: rgba(20, 158, 130, 0.12);
-  color: #149E82;
+  color: color-mix(in srgb, #149E82 var(--app-provider-tint), var(--td-text-color-primary));
 }
 .websearch-drawer--zhipu .setting-drawer__header-icon {
   background: rgba(37, 99, 235, 0.12);
-  color: #2563EB;
+  color: color-mix(in srgb, #2563EB var(--app-provider-tint), var(--td-text-color-primary));
 }
 </style>

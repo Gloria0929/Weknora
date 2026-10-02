@@ -9,6 +9,10 @@
         <div class="nav-group-title">{{ group.label }}</div>
         <template v-for="item in group.items" :key="item.key">
           <div
+            role="button"
+            tabindex="0"
+            :aria-current="currentSection === item.key ? 'page' : undefined"
+            :aria-expanded="item.children?.length ? expandedMenus.includes(item.key) : undefined"
             :class="[
               'nav-item',
               {
@@ -18,6 +22,8 @@
               },
             ]"
             @click="handleNavClick(item)"
+            @keydown.enter.prevent="handleNavClick(item)"
+            @keydown.space.prevent="handleNavClick(item)"
           >
             <!-- 网络搜索使用自定义 SVG 图标 -->
             <svg
@@ -156,11 +162,16 @@
               <div
                 v-for="(child, childIndex) in item.children"
                 :key="childIndex"
+                role="button"
+                tabindex="0"
+                :aria-current="currentSubSection === child.key ? 'page' : undefined"
                 :class="[
                   'submenu-item',
                   { active: currentSubSection === child.key },
                 ]"
                 @click.stop="handleSubMenuClick(item.key, child.key)"
+                @keydown.enter.prevent="handleSubMenuClick(item.key, child.key)"
+                @keydown.space.prevent="handleSubMenuClick(item.key, child.key)"
               >
                 <span class="submenu-label">{{ child.label }}</span>
               </div>

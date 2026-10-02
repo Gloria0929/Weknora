@@ -1,3 +1,5 @@
+@import (reference) './workspace-page.less';
+
 // 设置区（views/settings、views/system、views/integrations）各页面共用的版式 mixin：
 // 页面标题块、设置行、行内说明 / 控件列、行内保存状态。
 // 页面保留自己的 class 名，只把重复声明换成 mixin 调用，需要偏离时在调用后覆盖。
@@ -12,18 +14,16 @@
   margin-bottom: 28px;
 
   h2 {
-    margin: 0 0 8px;
-    color: var(--td-text-color-primary);
-    font-size: var(--app-text-3xl);
-    font-weight: 600;
-    line-height: 28px;
+    .workspace-page-title();
+    margin-bottom: 8px;
+    font-size: clamp(22px, 2vw, 26px);
   }
 
   .section-description {
     margin: 0;
     color: var(--td-text-color-secondary);
     font-size: var(--app-text-base);
-    line-height: 1.5;
+    line-height: 1.65;
   }
 
   // 标题左、操作按钮右
@@ -42,6 +42,7 @@
   gap: 24px;
   padding: 20px 0;
   border-bottom: 1px solid var(--td-component-stroke);
+  @media (max-width: 760px) { flex-wrap: wrap; gap: 12px; }
 
   &:last-child {
     border-bottom: none;
@@ -52,6 +53,7 @@
   flex: 1;
   min-width: 0;
   max-width: 65%;
+  @media (max-width: 760px) { max-width: 100%; flex-basis: 100%; }
 
   label,
   .setting-label {
@@ -68,13 +70,15 @@
     margin: 0;
     color: var(--td-text-color-secondary);
     font-size: var(--app-text-md);
-    line-height: 1.5;
+    line-height: 1.65;
   }
 }
 
 .setting-control() {
   flex-shrink: 0;
-  min-width: 280px;
+  min-width: min(280px, 100%);
+  @media (max-width: 760px) { justify-content: flex-start; min-width: 0; width: 100%; flex-wrap: wrap; }
+  max-width: 100%;
   display: flex;
   align-items: center;
   justify-content: flex-end;

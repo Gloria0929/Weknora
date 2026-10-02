@@ -123,23 +123,16 @@ watch(() => visibleItems.value.map((item) => item.key), (keys, previous = []) =>
 </script>
 
 <style scoped lang="less">
+@import (reference) '@/components/css/workspace-page.less';
 .toolbox-page {
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  margin: 0 16px 0 0;
-  padding: 20px 28px 0;
-  color: var(--td-text-color-primary);
+  .workspace-page();
 }
 
 .toolbox-header {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 24px;
   flex-shrink: 0;
 
   h2 {
@@ -147,10 +140,7 @@ watch(() => visibleItems.value.map((item) => item.key), (keys, previous = []) =>
     align-items: center;
     gap: 8px;
     margin: 0;
-    font-family: var(--app-font-family);
-    font-size: var(--app-text-4xl);
-    font-weight: 600;
-    line-height: 32px;
+    .workspace-page-title();
   }
 }
 

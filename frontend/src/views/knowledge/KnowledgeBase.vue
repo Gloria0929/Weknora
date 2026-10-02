@@ -2620,17 +2620,10 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
 
 </style>
 <style scoped lang="less">
+@import (reference) '@/components/css/workspace-page.less';
 .knowledge-layout {
-  display: flex;
-  flex-direction: column;
-  margin: 0 16px 0 0;
-  gap: 16px;
-  height: 100%;
-  flex: 1;
-  width: 100%;
-  min-width: 0;
-  padding: 20px 28px 0;
-  box-sizing: border-box;
+  .workspace-page();
+  gap: 20px;
 }
 
 // Breadcrumb tab switch (文档/Wiki in breadcrumb)

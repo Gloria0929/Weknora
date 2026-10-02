@@ -622,13 +622,19 @@ const messagesList = reactive([]);
 const workspaceRevision = ref(0);
 const workspacePath = ref("");
 const workspaceRuns = computed(() => collectWorkspaceRuns(messagesList));
-// 面板不在开场就弹：本轮的 workspace 事件先攒着，等 agent 把这一轮干完再决定看哪一屏。
+// Only a newly started conversation may reveal the panel on its first live
+// file output. History restore, stream reattachment and later sends never arm it.
+let workspaceAutoRevealPending = false;
+// Collect this turn's signals to select its final result in an already open panel.
 let workspaceTurnSignals = [];
 const workspacePanelTabs = ["source", "preview", "tests"];
 let fileChangeSequence = 0;
 
 /** Store one write/edit so the workspace code view can render its diff. */
 function recordWorkspaceFileChange(change, live) {
+  const liveMessage = live
+    ? messagesList.find(message => message.id === currentAssistantMessageId.value)
+    : undefined;
   fileChanges.addChange({
     id: `${change.path}-${++fileChangeSequence}`,
     path: change.path,
@@ -639,6 +645,7 @@ function recordWorkspaceFileChange(change, live) {
     removedLines: change.removedLines,
     timestamp: Date.now(),
     live,
+    turnId: change.turnId || (live ? String(liveMessage?.request_id || currentAssistantMessageId.value || '') : undefined),
   });
 }
 
@@ -653,6 +660,8 @@ function showLiveWorkspaceDiff(path) {
     workspaceRevision.value++;
   }
   if (!sandboxPanel.autoOpenAllowed.value) return;
+  if (!sandboxPanel.visible.value && !workspaceAutoRevealPending) return;
+  workspaceAutoRevealPending = false;
   // 终端 / 产物是用户自己打开在用的面板，不要抢走焦点。
   if (
     sandboxPanel.visible.value &&
@@ -665,7 +674,12 @@ function showLiveWorkspaceDiff(path) {
 function openCompletedWorkspacePanel() {
   const decision = completedWorkspacePanel(workspaceTurnSignals);
   workspaceTurnSignals = [];
-  if (!decision || props.embeddedMode || !sandboxPanel.autoOpenAllowed.value)
+  if (
+    !decision ||
+    props.embeddedMode ||
+    !sandboxPanel.visible.value ||
+    !sandboxPanel.autoOpenAllowed.value
+  )
     return;
   if (decision.path && decision.path !== workspacePath.value) {
     workspacePath.value = decision.path;
@@ -692,10 +706,10 @@ watch(
     workspacePath.value = "";
     workspaceRevision.value = 0;
     workspaceTurnSignals = [];
-    sandboxPanel.autoOpenAllowed.value = true;
+    workspaceAutoRevealPending = false;
     fileChanges.clearChanges();
   },
-  { immediate: true },
+  { immediate: true, flush: "sync" },
 );
 
 function forkAffordanceOf(messageId) {
@@ -1007,17 +1021,11 @@ watch(
 );
 const historyLoading = ref(true);
 watch(historyLoading, (pending) => {
-  if (
-    pending ||
-    props.embeddedMode ||
-    sandboxPanel.visible.value ||
-    !sandboxPanel.autoOpenAllowed.value
-  )
-    return;
+  if (pending || props.embeddedMode) return;
+  // Restore the file selection for a later manual open, without revealing the panel.
   const signal = lastWorkspaceSignal(messagesList);
   if (!signal) return;
   workspacePath.value = signal.path;
-  sandboxPanel.open(signal.tab);
 });
 // 历史里带着每一轮的写/改记录：刷新后 diff 仍然能显示，而不只是最后一次。
 watch(historyLoading, (pending) => {
@@ -1513,7 +1521,7 @@ const {
   onTurnComplete: (message) => {
     void loadFollowUpSuggestions(message, true);
     void flushSteerAfterTurn(persistedAssistantId(message));
-    // 代码写完（这一轮结束）才打开：直接落在产物上，能预览就预览。
+    // 已展开的面板在本轮结束后聚焦产物，收起的面板保持收起。
     openCompletedWorkspacePanel();
   },
 });
@@ -1945,7 +1953,6 @@ const sendMsg = async (
 ) => {
   if (composerLocked.value) return;
   workspaceTurnSignals = [];
-  sandboxPanel.autoOpenAllowed.value = true;
   const intent = workspaceIntentFromPrompt(
     value,
     workspaceIntent(route.query.mode),
@@ -2301,7 +2308,7 @@ onChunk((data) => {
     ? workspaceToolSignal(data)
     : null;
   if (workspaceSignal) {
-    // 只记录，不弹面板：打开时机统一放在这一轮结束时。
+    // Reads, tool starts and commands only refresh data; they never reveal the panel.
     workspaceTurnSignals.push(workspaceSignal);
     if (workspaceSignal.path) workspacePath.value = workspaceSignal.path;
     if (workspaceSignal.refresh) workspaceRevision.value++;
@@ -2384,6 +2391,8 @@ onMounted(async () => {
   isReplying.value = false;
 
   if (firstQuery.value) {
+    workspaceAutoRevealPending = !props.embeddedMode;
+    sandboxPanel.autoOpenAllowed.value = true;
     scrollLock.value = true;
     historyLoading.value = false;
     if (firstModelId.value) {

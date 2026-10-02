@@ -10,6 +10,7 @@
     <template v-if="tab !== 'tests'">
       <div class="workspace-body">
         <aside
+          v-show="!showFileDiff"
           ref="treeRef"
           class="file-tree"
           :style="treeStyle"
@@ -92,14 +93,15 @@
           />
         </aside>
         <div class="workspace-main">
-          <div v-if="file" class="file-toolbar">
-            <span class="file-toolbar__path" :title="file.path">{{ file.path }}</span>
+          <div v-if="file || fileChanges.length" class="file-toolbar">
+            <span class="file-toolbar__path" :title="file?.path">{{ showFileDiff ? t("workspace.diff") : file?.path }}</span>
             <div v-if="showViewSwitch" class="file-view-switch" role="group" :aria-label="t('workspace.fileView')">
-              <button type="button" :aria-pressed="fileView !== 'preview'" @click="fileView = 'source'">{{ t('workspace.source') }}</button>
-              <button type="button" :aria-pressed="fileView === 'preview'" @click="fileView = 'preview'">{{ t('workspace.preview') }}</button>
+              <button type="button" :aria-pressed="fileView === 'source'" @click="fileView = 'source'">{{ t('workspace.source') }}</button>
+              <button v-if="fileChanges.length" type="button" :aria-pressed="fileView === 'diff'" @click="fileView = 'diff'">{{ t('workspace.diff') }}</button>
+              <button v-if="canPreviewFile" type="button" :aria-pressed="fileView === 'preview'" @click="fileView = 'preview'">{{ t('workspace.preview') }}</button>
             </div>
             <button v-if="showFilePreview" type="button" :aria-pressed="mobilePreview" :title="t(mobilePreview ? 'workspace.desktop' : 'workspace.mobile')" :aria-label="t(mobilePreview ? 'workspace.desktop' : 'workspace.mobile')" @click="mobilePreview = !mobilePreview"><t-icon :name="mobilePreview ? 'desktop' : 'mobile'" /></button>
-            <button v-else-if="!imageSource" type="button" :title="t(copied ? 'workspace.copied' : 'workspace.copy')" :aria-label="t(copied ? 'workspace.copied' : 'workspace.copy')" @click="copySource"><t-icon :name="copied ? 'check' : 'copy'" /></button>
+            <button v-else-if="file && !imageSource && !showFileDiff" type="button" :title="t(copied ? 'workspace.copied' : 'workspace.copy')" :aria-label="t(copied ? 'workspace.copied' : 'workspace.copy')" @click="copySource"><t-icon :name="copied ? 'check' : 'copy'" /></button>
             <button type="button" :title="t('workspace.refresh')" :aria-label="t('workspace.refresh')" @click="refresh"><t-icon name="refresh" /></button>
           </div>
           <div v-if="error" class="workspace-notice" role="alert">
@@ -108,8 +110,16 @@
               {{ t("workspace.retry") }}
             </button>
           </div>
+          <div v-if="showFileDiff" class="diff-file-list" :aria-label="t('workspace.diff')">
+            <WorkspaceFileDiff
+              v-for="change in fileChanges"
+              :key="`${sessionId}:${change.path}`"
+              :change="change"
+              @open-source="openFile(relativePath(change.path) || change.path, 'source')"
+            />
+          </div>
           <div
-            v-if="!file && workspaceState !== 'expired'"
+            v-else-if="!file && workspaceState !== 'expired'"
             class="workspace-empty"
           >
             <div class="empty-art" aria-hidden="true">
@@ -135,49 +145,9 @@
               <img :key="imageSource" :src="imageSource" :alt="file.path" @error="imageError = true" />
             </div>
           </template>
-          <template v-else-if="showFileDiff && file">
-            <div class="diff-scroll" tabindex="0" :aria-label="file.path">
-              <table class="diff-table">
-                <colgroup><col class="diff-number-column" /><col class="diff-number-column" /><col /></colgroup>
-                <tbody>
-                  <template
-                    v-for="(hunk, hunkIndex) in diffHunks"
-                    :key="`hunk-${hunkIndex}`"
-                  >
-                    <tr class="diff-hunk-row">
-                      <td colspan="3" class="diff-hunk">{{ hunk.header }}</td>
-                    </tr>
-                    <tr
-                      v-for="(line, lineIndex) in hunk.lines"
-                      :key="`line-${hunkIndex}-${lineIndex}`"
-                      class="diff-row"
-                      :class="`is-${line.type}`"
-                    >
-                      <td class="diff-gutter">{{ line.oldNumber ?? "" }}</td>
-                      <td class="diff-gutter">{{ line.newNumber ?? "" }}</td>
-                      <td class="diff-code">
-                        <div class="diff-line">
-                          <span class="diff-sign" aria-hidden="true">{{
-                            line.type === "add" ? "+" : line.type === "del" ? "-" : " "
-                          }}</span>
-                          <span class="diff-text" v-html="line.highlighted || '&#8203;'" />
-                        </div>
-                      </td>
-                    </tr>
-                  </template>
-                </tbody>
-              </table>
-            </div>
-          </template>
           <template v-else-if="!showFilePreview && !showFileDiff && file">
             <p v-if="copyError" class="workspace-notice" role="alert">
               {{ copyError }}
-            </p>
-            <p
-              v-if="(formattedCode?.source ?? file.content).length > SOURCE_LIMIT"
-              class="workspace-notice"
-            >
-              {{ t("workspace.truncated") }}
             </p>
             <div class="source-scroll" tabindex="0" :aria-label="file.path">
               <div class="source-lines">
@@ -220,7 +190,7 @@
               <p>{{ t("workspace.previewEmpty") }}</p>
             </div>
           </template>
-          <footer v-if="file" class="file-status">
+          <footer v-if="file && !showFileDiff" class="file-status">
             <span>{{ t(imageSource ? "workspace.imagePreview" : showFilePreview ? "workspace.previewNote" : "workspace.readOnly") }}</span>
             <span v-if="!showFilePreview && !imageSource">{{ t("workspace.lines", { count: lineCount }) }}</span>
           </footer>
@@ -243,8 +213,9 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import PanelResizeHandle from "@/components/PanelResizeHandle.vue";
+import WorkspaceFileDiff from "./WorkspaceFileDiff.vue";
 import WorkspaceTestResults from "./WorkspaceTestResults.vue";
-import { formatWorkspaceCode, highlightWorkspaceLines, trimHighlightedIndent } from "@/utils/workspaceCode";
+import { formatWorkspaceCode, highlightWorkspaceLines } from "@/utils/workspaceCode";
 import { marked } from "marked";
 import { sanitizeMarkdownHTML } from "@/utils/security";
 import {
@@ -259,8 +230,7 @@ import {
   buildWorkspacePreview,
   canPreviewSource,
 } from "@/utils/workspacePreview";
-import { buildUnifiedDiff } from "@/utils/unifiedDiff";
-import { findFileChange, useFileChanges } from "@/composables/useFileChanges";
+import { useFileChanges } from "@/composables/useFileChanges";
 import type {
   WorkspaceTab,
   WorkspaceCommandRun,
@@ -299,7 +269,6 @@ const api: WorkspaceGateway = props.gateway || {
   run: async (session, command) =>
     (await runProgrammingCommand(session, { command, timeout: 60 })).data,
 };
-const SOURCE_LIMIT = 200_000;
 // Remote sandboxes stage attachments in /workspace/input and artifacts in
 // /workspace/output next to the project. The code tree follows Manus and only
 // shows the project itself, so both are hidden there. A host workspace has no
@@ -377,11 +346,6 @@ const { changes: fileChanges, activeId: activeFileChange } = useFileChanges();
 const canPreviewFile = computed(
   () => Boolean(file.value && canPreviewSource(file.value.path)),
 );
-/** The write/edit recorded for the file on screen, if any. */
-const currentChange = computed(() => {
-  const path = file.value?.path;
-  return path ? findFileChange(fileChanges.value, path) : undefined;
-});
 const formattedCode = ref<{ source: string } | null>(null);
 watch(
   () => [props.sessionId, file.value?.path, file.value?.encoding === 'base64' ? undefined : file.value?.content] as const,
@@ -395,60 +359,12 @@ watch(
   },
   { immediate: true, flush: 'sync' },
 );
-// Diff identity and line numbers always come from the recorded original text.
-// Async source formatting must not turn a replacement into a pure insertion.
-const diffSources = computed(() => {
-  const change = currentChange.value;
-  return { before: change?.before, after: change?.after };
-});
-/** The unified diff for the displayed file; null when there is nothing to show. */
-const currentDiff = computed(() => {
-  if (imageSource.value) return null;
-  const change = currentChange.value;
-  if (!change || change.before === undefined || change.after === undefined)
-    return null;
-  if (change.before === change.after) return null;
-  const diff = buildUnifiedDiff(diffSources.value.before!, diffSources.value.after!);
-  return diff.empty ? null : diff;
-});
-const hasFileDiff = computed(() => currentDiff.value !== null);
-const diffHunks = computed(() => {
-  const hunks = currentDiff.value?.hunks ?? [];
-  if (!hunks.length) return [];
-  const path = file.value?.path || '';
-  const before = highlightWorkspaceLines(diffSources.value.before || '', path);
-  const after = highlightWorkspaceLines(diffSources.value.after || '', path);
-  return hunks.map(hunk => {
-    // Fold only indentation shared by every nonblank line in this hunk.
-    // Relative indentation, highlighted multiline tokens and source numbers stay intact.
-    const indents = hunk.lines.filter(line => line.content.trim())
-      .map(line => /^[\t ]*/.exec(line.content)![0]);
-    let commonIndent = indents[0] || '';
-    for (const indent of indents) {
-      while (commonIndent && !indent.startsWith(commonIndent)) commonIndent = commonIndent.slice(0, -1);
-    }
-    return { ...hunk, lines: hunk.lines.map(line => ({
-      ...line,
-      highlighted: trimHighlightedIndent(
-        (line.type === 'del' ? before[(line.oldNumber || 1) - 1] : after[(line.newNumber || 1) - 1]) || '',
-        commonIndent.length,
-      ),
-    })) };
-  });
-});
-// The color difference is part of the code pane itself, Codex-style: the moment
-// a file has a recorded change we render its diff inline, with no separate
-// "diff" mode to switch into. Only the explicit preview view replaces it.
+// Source always contains the complete file. Changes have their own file list.
 const showFileDiff = computed(
-  () =>
-    props.tab === 'source' &&
-    !(fileView.value === 'preview' && canPreviewFile.value) &&
-    hasFileDiff.value,
+  () => props.tab === 'source' && fileView.value === 'diff' && fileChanges.value.length > 0,
 );
-// The switch only needs to offer the standalone preview; the colored diff is
-// always drawn in the code pane when one exists.
 const showViewSwitch = computed(
-  () => props.tab === 'source' && canPreviewFile.value,
+  () => props.tab === 'source' && (canPreviewFile.value || fileChanges.value.length > 0),
 );
 const showFilePreview = computed(
   () =>
@@ -481,10 +397,10 @@ const treeRequests = new Map<string, number>();
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 const busy = computed(() => pendingPaths.value.length > 0);
 const content = computed(
-  () => file.value?.encoding === 'base64' ? '' : (formattedCode.value?.source ?? file.value?.content ?? '').slice(0, SOURCE_LIMIT),
+  () => file.value?.encoding === 'base64' ? '' : (formattedCode.value?.source ?? file.value?.content ?? ''),
 );
 const lineCount = computed(() =>
-  (showFileDiff.value ? diffSources.value.after || '' : content.value).split("\n").length,
+  content.value.split("\n").length,
 );
 const highlightedLines = computed(() => highlightWorkspaceLines(content.value, file.value?.path || ''));
 const fileParts = computed(() => {
@@ -574,7 +490,7 @@ async function toggleDirectory(node: ProgrammingNode) {
 }
 function activateNode(node: ProgrammingNode) {
   if (node.kind === "directory") void toggleDirectory(node);
-  else void openFile(node.path);
+  else void openFile(node.path, "source");
 }
 /** Expand every ancestor of a file so the tree reveals it after a tool event. */
 async function revealPath(target: string) {
@@ -808,6 +724,7 @@ watch(activeFileChange, async (id) => {
   lastFollowedChange = id;
   const change = fileChanges.value.find((item) => item.id === id);
   if (!change?.live) return;
+  fileView.value = "diff";
   // Stash the raw path before awaiting: a fresh mount runs the refresh watcher
   // in the same tick, and it must find this file rather than a restored one.
   pendingDiffPath = change.path;
@@ -1208,63 +1125,7 @@ button {
 .file-toolbar button:hover, .file-toolbar button[aria-pressed="true"] { background: var(--td-bg-color-secondarycontainer); color: var(--td-text-color-primary); }
 .file-toolbar button:focus-visible { outline: 2px solid var(--td-brand-color); outline-offset: 2px; }
 .file-view-switch { display: flex; gap: 2px; padding: 2px; border: 1px solid var(--td-component-stroke); border-radius: 7px; }
-.diff-scroll {
-  overflow: auto;
-  flex: 1;
-  min-height: 0;
-  background: var(--td-bg-color-secondarycontainer);
-}
-.diff-table {
-  width: 100%;
-  table-layout: fixed;
-  border-collapse: collapse;
-  font: var(--app-text-md)/1.5 var(--app-font-family-mono, monospace);
-  tab-size: 4;
-}
-.diff-hunk-row td { position: sticky; top: 0; z-index: 1; }
-.diff-hunk {
-  padding: 4px 14px;
-  color: var(--td-text-color-placeholder);
-  font-size: var(--app-text-xs, 12px);
-  background: color-mix(in srgb, var(--td-text-color-primary) 4%, var(--td-bg-color-secondarycontainer));
-  user-select: none;
-}
-.diff-row {
-  &.is-add { background: color-mix(in srgb, #2da44e 22%, transparent); }
-  &.is-del { background: color-mix(in srgb, #cf222e 22%, transparent); }
-}
-.diff-number-column { width: 38px; }
-.diff-gutter {
-  padding: 0 5px;
-  text-align: right;
-  vertical-align: top;
-  white-space: nowrap;
-  user-select: none;
-  color: var(--td-text-color-disabled);
-  border-right: 1px solid var(--td-component-stroke);
-}
-.diff-row.is-add .diff-gutter:first-child { box-shadow: inset 2px 0 0 #2da44e; }
-.diff-row.is-del .diff-gutter:first-child { box-shadow: inset 2px 0 0 #cf222e; }
-.diff-code {
-  padding: 0 10px 0 6px;
-  vertical-align: top;
-}
-.diff-line {
-  display: grid;
-  grid-template-columns: 1.2em minmax(0, 1fr);
-}
-.diff-text {
-  white-space: pre-wrap;
-  word-break: normal;
-  overflow-wrap: anywhere;
-}
-.diff-sign {
-  white-space: pre;
-  color: var(--td-text-color-disabled);
-  user-select: none;
-}
-.diff-row.is-add .diff-sign { color: #2da44e; }
-.diff-row.is-del .diff-sign { color: #cf222e; }
+.diff-file-list { flex: 1; min-height: 0; overflow: auto; padding: 0 10px 16px; }
 .source-scroll {
   overflow: auto;
   flex: 1;
@@ -1292,13 +1153,15 @@ button {
 
 .source-code {
   min-width: 0;
+  max-height: none;
+  overflow: visible;
   padding: 0 16px 0 8px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   code { font: inherit; white-space: inherit; }
 }
 
-.source-code, .diff-code {
+.source-code {
 
   :deep(.hljs-keyword),
   :deep(.hljs-doctag),
@@ -1345,52 +1208,12 @@ button {
   }
 }
 
-:global(:root[theme-mode="dark"]) .conversation-workspace {
+:global(:root[theme-mode="dark"] .conversation-workspace) {
   --ws-code-keyword: #ff7b72;
   --ws-code-entity: #56d4dd;
   --ws-code-string: #a5d6ff;
   --ws-code-accent: #79c0ff;
   --ws-code-comment: #8b949e;
-}
-
-:global(:root[theme-mode="dark"])
-  .conversation-workspace
-  .diff-row.is-add {
-  background: color-mix(in srgb, #3fb950 20%, transparent);
-}
-
-:global(:root[theme-mode="dark"])
-  .conversation-workspace
-  .diff-row.is-del {
-  background: color-mix(in srgb, #f85149 20%, transparent);
-}
-
-:global(:root[theme-mode="dark"])
-  .conversation-workspace
-  .diff-row.is-add
-  .diff-gutter:first-child {
-  box-shadow: inset 2px 0 0 #3fb950;
-}
-
-:global(:root[theme-mode="dark"])
-  .conversation-workspace
-  .diff-row.is-del
-  .diff-gutter:first-child {
-  box-shadow: inset 2px 0 0 #f85149;
-}
-
-:global(:root[theme-mode="dark"])
-  .conversation-workspace
-  .diff-row.is-add
-  .diff-sign {
-  color: #3fb950;
-}
-
-:global(:root[theme-mode="dark"])
-  .conversation-workspace
-  .diff-row.is-del
-  .diff-sign {
-  color: #f85149;
 }
 
 :global(:root[theme-mode="dark"])

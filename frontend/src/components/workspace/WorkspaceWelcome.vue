@@ -157,7 +157,7 @@ button {
   margin-bottom: 32px;
 
   h1 {
-    font-family: Georgia, "Songti SC", "Noto Serif SC", serif;
+    font-family: var(--app-font-family-display);
     font-size: clamp(28px, 3vw, 40px);
     font-weight: 500;
     letter-spacing: -1.3px;
@@ -236,7 +236,7 @@ button {
 
     &:hover,
     &.selected {
-      // background: var(--td-bg-color-secondarycontainer);
+      background: var(--td-bg-color-secondarycontainer);
       border-color: var(--td-component-border);
     }
   }

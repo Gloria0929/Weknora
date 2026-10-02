@@ -232,6 +232,12 @@ const router = createRouter({
       ],
     },
     ...(import.meta.env.DEV ? [{
+      path: '/platform/dev/design',
+      name: 'designPreview',
+      component: () => import('../views/dev/DesignPreview.vue'),
+      meta: { requiresAuth: false, requiresInit: false },
+    }] : []),
+    ...(import.meta.env.DEV ? [{
       path: '/platform/dev/workspace',
       name: 'workspacePreview',
       component: () => import('../views/dev/WorkspacePreview.vue'),

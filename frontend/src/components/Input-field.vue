@@ -4199,7 +4199,9 @@ const getImgSrc = (url: string) => {
   background: transparent;
   box-shadow: none;
 
-  &:focus {
+  &:focus,
+  &:focus-visible {
+    outline: none;
     border: none;
     box-shadow: none;
   }

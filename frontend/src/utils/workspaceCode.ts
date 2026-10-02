@@ -29,7 +29,7 @@ export function highlightWorkspaceLines(source: string, path: string): string[] 
   const language = workspaceCodeLanguage(path)
   let html = escapeCode(source)
   try {
-    if (hljs.getLanguage(language)) html = hljs.highlight(source, { language, ignoreIllegals: true }).value
+    if (source.length <= 200_000 && hljs.getLanguage(language)) html = hljs.highlight(source, { language, ignoreIllegals: true }).value
   } catch { /* Incomplete streamed source still has a readable, escaped fallback. */ }
   const spans: string[] = []
   return html.split('\n').map(line => {

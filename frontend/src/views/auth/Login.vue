@@ -2,8 +2,6 @@
   <div class="auth-page">
     <!-- 左侧品牌面板 -->
     <aside class="brand-panel">
-      <div class="brand-panel__glow brand-panel__glow--top"></div>
-      <div class="brand-panel__glow brand-panel__glow--bottom"></div>
 
       <div class="brand-panel__inner">
         <div class="brand-panel__eyebrow">KNOWLEDGE / AGENT / WORKSPACE</div>
@@ -669,65 +667,18 @@ onMounted(async () => {
   overflow: hidden;
 }
 
-/* ---------- 左侧品牌面板（始终为暗色主题）---------- */
+/* The entry screen shares the welcome page's paper and charcoal surfaces. */
 .brand-panel {
   position: relative;
   flex: 0 0 46%;
-  min-width: 380px;
-  background:
-    radial-gradient(
-      circle at 82% 14%,
-      color-mix(in srgb, var(--td-brand-color) 32%, transparent),
-      transparent 32%
-    ),
-    radial-gradient(
-      circle at 14% 88%,
-      color-mix(in srgb, var(--td-brand-color-active) 24%, transparent),
-      transparent 36%
-    ),
-    #0c1513;
-  color: #f1f5f9;
-  overflow: hidden;
+  min-width: 0;
+  background: var(--td-bg-color-sidebar);
+  color: var(--td-text-color-primary);
+  border-right: 1px solid var(--td-component-stroke);
   display: flex;
   align-items: center;
   padding: 44px clamp(32px, 5vw, 76px);
   box-sizing: border-box;
-
-  &::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    opacity: 0.18;
-    pointer-events: none;
-    background-image:
-      linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
-    background-size: 64px 64px;
-    mask-image: linear-gradient(to bottom, black, transparent 76%);
-  }
-}
-
-.brand-panel__glow {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(120px);
-  pointer-events: none;
-}
-
-.brand-panel__glow--top {
-  width: 480px;
-  height: 480px;
-  top: -180px;
-  right: -160px;
-  background: color-mix(in srgb, var(--td-brand-color) 38%, transparent);
-}
-
-.brand-panel__glow--bottom {
-  width: 420px;
-  height: 420px;
-  bottom: -200px;
-  left: -120px;
-  background: color-mix(in srgb, var(--td-brand-color-active) 30%, transparent);
 }
 
 .brand-panel__inner {
@@ -755,7 +706,7 @@ onMounted(async () => {
   height: 38px;
   border-radius: var(--app-radius-xl);
   background: var(--td-brand-color-light);
-  color: #0c1513;
+  color: var(--td-text-color-primary);
   font-weight: 800;
   font-size: var(--app-text-4xl);
   letter-spacing: -0.7px;
@@ -766,7 +717,7 @@ onMounted(async () => {
   font-size: var(--app-text-4xl);
   font-weight: 700;
   letter-spacing: -0.3px;
-  color: #f8fafc;
+  color: var(--td-text-color-primary);
 }
 
 .brand-panel__eyebrow,
@@ -778,7 +729,7 @@ onMounted(async () => {
 }
 
 .brand-panel__eyebrow {
-  color: color-mix(in srgb, var(--td-brand-color-light) 60%, rgba(255,255,255,0.6));
+  color: var(--td-text-color-secondary);
   margin-bottom: 74px;
 }
 
@@ -788,18 +739,19 @@ onMounted(async () => {
 
 .brand-copy__title {
   font-size: clamp(34px, 4vw, 48px);
-  line-height: 1.08;
-  font-weight: 700;
+  font-family: var(--app-font-family-display);
+  line-height: 1.3;
+  font-weight: 500;
   letter-spacing: -1.5px;
   margin: 0 0 18px 0;
-  color: #ffffff;
-  text-wrap: nowrap;
+  color: var(--td-text-color-primary);
+  text-wrap: balance;
 }
 
 .brand-copy__desc {
   font-size: var(--app-text-xl);
   line-height: 1.7;
-  color: rgba(241, 245, 249, 0.68);
+  color: var(--td-text-color-secondary);
   margin: 0;
   max-width: 390px;
 }
@@ -818,7 +770,7 @@ onMounted(async () => {
   align-items: center;
   gap: 12px;
   font-size: var(--app-text-lg);
-  color: rgba(241, 245, 249, 0.85);
+  color: var(--td-text-color-secondary);
 }
 
 .brand-features__check {
@@ -850,11 +802,11 @@ onMounted(async () => {
   display: inline-block;
   padding: 7px 12px;
   border-radius: var(--app-radius-md);
-  border: 1px solid rgba(241, 245, 249, 0.16);
-  background: rgba(241, 245, 249, 0.06);
+  border: 1px solid var(--td-component-stroke);
+  background: var(--td-bg-color-container);
   font-size: var(--app-text-md);
   font-weight: 500;
-  color: rgba(241, 245, 249, 0.78);
+  color: var(--td-text-color-secondary);
 }
 
 .brand-panel__meta {
@@ -862,7 +814,7 @@ onMounted(async () => {
   align-items: center;
   gap: 9px;
   font-size: var(--app-text-sm);
-  color: rgba(241, 245, 249, 0.42);
+  color: var(--td-text-color-secondary);
 }
 
 .brand-panel__meta-dot {
@@ -876,7 +828,7 @@ onMounted(async () => {
 .brand-footer {
   margin-top: 48px;
   font-size: var(--app-text-md);
-  color: rgba(241, 245, 249, 0.38);
+  color: var(--td-text-color-secondary);
 }
 
 /* ---------- 右侧表单区（亮暗色自适应）---------- */
@@ -891,7 +843,7 @@ onMounted(async () => {
   background: var(--td-bg-color-page);
 
   &::after {
-    content: "";
+    content: none;
     position: absolute;
     right: 8%;
     bottom: 10%;
@@ -915,9 +867,9 @@ onMounted(async () => {
   width: 100%;
   padding: 40px 42px 36px;
   border: 1px solid var(--td-component-stroke);
-  border-radius: var(--app-radius-pill);
+  border-radius: var(--app-radius-2xl);
   background: var(--td-bg-color-container);
-  box-shadow: 0 4px 20px rgba(40, 38, 32, .035);
+  box-shadow: var(--app-surface-shadow);
   box-sizing: border-box;
 }
 
@@ -931,8 +883,9 @@ onMounted(async () => {
 }
 
 .auth-card__title {
-  font-size: var(--app-text-4xl);
-  font-weight: 700;
+  font-family: var(--app-font-family-display);
+  font-size: 30px;
+  font-weight: 500;
   letter-spacing: -1px;
   color: var(--td-text-color-primary);
   margin: 0 0 8px 0;
@@ -1220,23 +1173,6 @@ onMounted(async () => {
   .auth-card {
     padding: 30px 22px 26px;
     border-radius: var(--app-radius-xl);
-  }
-}
-</style>
-
-<style lang="less">
-/* 暗色模式下仅需覆盖品牌面板中不跟随 TDesign 变量的部分 */
-html[theme-mode="dark"] {
-  .form-panel {
-    background: var(--td-bg-color-page);
-  }
-
-  .brand-panel__eyebrow {
-    color: color-mix(in srgb, var(--td-brand-color) 55%, rgba(255,255,255,0.5));
-  }
-
-  .brand-panel__meta {
-    color: rgba(241, 245, 249, 0.5);
   }
 }
 </style>

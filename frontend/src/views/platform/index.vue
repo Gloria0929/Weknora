@@ -2,7 +2,8 @@
     <div class="main" ref="dropzone" :style="{ '--sidebar-width': `${uiStore.sidebarDisplayWidth}px` }">
         <Menu></Menu>
         <div v-if="isRouterAlive" class="platform-route-outlet">
-            <RouterView />
+            <!-- Settings is mounted once below; its route only controls visibility. -->
+            <RouterView v-if="route.name !== 'settings'" />
         </div>
         <div class="upload-mask" v-show="ismask">
             <UploadMask></UploadMask>

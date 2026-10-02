@@ -1,4 +1,5 @@
 import { ref, provide, inject, type InjectionKey, type Ref } from 'vue'
+import { buildUnifiedDiff } from '@/utils/unifiedDiff'
 
 export interface FileChange {
   id: string
@@ -13,6 +14,8 @@ export interface FileChange {
   timestamp: number
   /** True for a change from the live stream, false for history replay. */
   live: boolean
+  /** Groups repeated edits from one assistant turn without losing its original text. */
+  turnId?: string
 }
 
 export interface FileChangesContext {
@@ -30,10 +33,18 @@ export function provideFileChanges() {
   const activeId = ref<string | null>(null)
 
   const addChange = (change: FileChange) => {
-    // One row per path, newest wins: the code view shows the current state of
-    // a file, never a stack of stale revisions of the same file.
+    // One row per path. Within a turn, compare the original file with the
+    // final version; replacing each intermediate edit loses earlier deletions.
     const existing = changes.value.findIndex((c) => c.path === change.path)
     if (existing >= 0) {
+      const previous = changes.value[existing]
+      if (change.turnId && previous.turnId === change.turnId) {
+        change = { ...change, before: previous.before, type: previous.type }
+      }
+      if (change.before !== undefined && change.after !== undefined) {
+        const diff = buildUnifiedDiff(change.before, change.after)
+        change = { ...change, addedLines: diff.added, removedLines: diff.removed }
+      }
       // Replacing in place keeps the original position, so a turn that cycles
       // back to an earlier file does not reshuffle the list under the reader.
       changes.value = changes.value.map((c, index) =>
