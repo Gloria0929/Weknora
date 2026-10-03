@@ -168,13 +168,12 @@
   :root .t-button { transition: none; }
 }
 
-/* Keep static SVG navigation icons consistent with the neutral active state. */
-:root .aside_box .menu_icon img.icon,
-:root .aside_box .logo_box .logo { filter: grayscale(1); }
+/* Keep static SVG navigation icons consistent with the neutral active state.
+ * The sidebar wordmark is now drawn with currentColor, so it needs no filter. */
+:root .aside_box .menu_icon img.icon { filter: grayscale(1); }
 :root .aside_box .menu_item_active .menu_icon img.icon,
 :root .aside_box .menu_item_c_active .menu_icon img.icon { filter: grayscale(1); }
 :root[theme-mode="dark"] .aside_box .menu_icon img.icon { filter: grayscale(1) brightness(0) invert(1); }
-:root[theme-mode="dark"] .aside_box .logo_box .logo { filter: invert(1) hue-rotate(180deg); }
 :root[theme-mode="dark"] .aside_box .menu_item_active .menu_icon img.icon,
 :root[theme-mode="dark"] .aside_box .menu_item_c_active .menu_icon img.icon { filter: grayscale(1) brightness(0) invert(1); }
 

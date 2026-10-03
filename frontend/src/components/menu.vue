@@ -6,7 +6,10 @@
     <!-- 展开时：Logo + 搜索/折叠按钮同行 -->
     <div class="logo_row" v-if="!uiStore.sidebarCollapsed">
       <div class="logo_box" @click="router.push('/platform/creatChat')" style="cursor: pointer">
-        <img class="logo" src="@/assets/img/weknora.png" alt="" />
+        <span class="brand-mark" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </span>
+        <span class="brand-wordmark">WeKnora</span>
         <sup v-if="isLiteEdition" class="lite-badge">Lite</sup>
       </div>
       <div class="logo_actions">
@@ -2369,13 +2372,61 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
   .logo_box {
     display: flex;
     align-items: center;
+    gap: 8px;
     flex: 1;
     min-width: 0;
-    overflow: hidden;
+    // 不能裁切：品牌标记带 -12° 旋转，包围盒比布局盒宽/高约 2px，
+    // overflow:hidden 会把它的左缘和上下缘削平。文案改由省略号截断。
+    overflow: visible;
 
-    .logo {
-      width: 128px;
-      height: auto;
+    // 品牌标记沿用「新对话」首页的三道圆角短线，用 currentColor 跟随主题，
+    // 侧栏因此不再依赖位图 logo，也不必再做深色模式的反转滤镜。
+    .brand-mark {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2.5px;
+      height: 18px;
+      flex-shrink: 0;
+      // 右移一点：抵消旋转带来的左侧外扩，与下方菜单图标列对齐，
+      // 同时避免标记贴住侧栏左缘显得被“切掉”。
+      margin-left: 2px;
+      color: var(--td-text-color-primary);
+      transform: rotate(-12deg);
+
+      > span {
+        display: block;
+        width: 3.5px;
+        background: currentColor;
+        border-radius: var(--app-radius-pill);
+
+        &:nth-child(1) {
+          height: 12px;
+        }
+
+        &:nth-child(2) {
+          height: 18px;
+        }
+
+        &:last-child {
+          height: 9px;
+          align-self: flex-end;
+        }
+      }
+    }
+
+    // 与标记并排的文字字标，模仿 Manus 侧栏的紧凑品牌锁定。
+    .brand-wordmark {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: var(--app-text-lg);
+      font-weight: 600;
+      line-height: 1;
+      letter-spacing: -0.2px;
+      color: var(--td-text-color-primary);
+      white-space: nowrap;
+      user-select: none;
     }
 
     .lite-badge {
@@ -2987,11 +3038,6 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
 }
 </style>
 <style lang="less">
-// Dark mode: invert dark logo to light
-html[theme-mode="dark"] .aside_box .logo_box .logo {
-  filter: invert(1) hue-rotate(180deg);
-}
-
 // Dark mode: 滚动条在深色背景下需要更亮的颜色才看得见
 html[theme-mode="dark"] .aside_box .menu_top:hover {
   scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
