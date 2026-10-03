@@ -20,8 +20,7 @@
               <t-tooltip :content="canManageOrg ? $t('organization.createOrg') : noPermissionTip" placement="bottom">
                 <t-button variant="text" theme="default" size="small" class="header-action-btn"
                   style="--wails-draggable: no-drag" :disabled="!canManageOrg" @click="handleCreateOrganization">
-                  <template #icon><img src="@/assets/img/organization-green.svg" class="org-create-icon" alt=""
-                      aria-hidden="true" /></template>
+                  <template #icon><span class="org-create-icon" aria-hidden="true" /></template>
                 {{ $t('organization.createOrg') }}
                 </t-button>
               </t-tooltip>
@@ -183,8 +182,7 @@
           </t-tooltip>
           <t-tooltip :content="noPermissionTip" placement="top" :disabled="canManageOrg">
             <t-button theme="primary" class="org-create-btn" :disabled="!canManageOrg" @click="handleCreateOrganization">
-              <template #icon><img src="@/assets/img/organization-green.svg" class="org-create-icon" alt=""
-                  aria-hidden="true" /></template>
+              <template #icon><span class="org-create-icon" aria-hidden="true" /></template>
               {{ $t('organization.createOrg') }}
             </t-button>
           </t-tooltip>
@@ -1156,10 +1154,24 @@ watch(keyword, () => { collapsedOrgSections.value = new Set() })
   }
 }
 
-.org-create-btn .org-create-icon {
+// organization-green.svg 的描边是硬编码绿色，不会跟随 --td-brand-color；
+// 这里用 mask + currentColor 染色，让「创建共享空间」按钮的图标与知识库 / 智能体
+// 列表的创建按钮同色（跟随主题品牌色），而不是固定的绿色。
+.org-create-icon {
+  display: inline-block;
   width: 16px;
   height: 16px;
-  filter: brightness(0) invert(1);
+  flex-shrink: 0;
+  vertical-align: middle;
+  background-color: currentColor;
+  -webkit-mask-image: url("@/assets/img/organization.svg");
+  mask-image: url("@/assets/img/organization.svg");
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
 }
 
 .header-subtitle {

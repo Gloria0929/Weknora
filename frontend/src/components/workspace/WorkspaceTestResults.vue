@@ -17,7 +17,7 @@
       <div class="check-overview__heading" role="status" aria-live="polite">
         <t-icon :name="overviewIcon" :class="overviewStatus" size="20px" />
         <strong>{{ t(`workspace.${overviewLabel}`) }}</strong>
-        <span>{{ t('workspace.checkCount', { count: checks.length }) }}</span>
+        <span>{{ t('workspace.checkCount', { count: scopedEntries.length }) }}</span>
       </div>
       <div class="check-stats">
         <div v-for="status in statuses" :key="status" :class="status">
@@ -94,10 +94,11 @@ const statusIcons = { passed: 'check-circle', failed: 'close-circle', running: '
 const kindKeys = { tests: 'testChecks', build: 'buildChecks', types: 'typeChecks', lint: 'lintChecks', other: 'otherOperation' } as const
 const entries = computed(() => props.runs.map(describeWorkspaceCheck))
 const checks = computed(() => entries.value.filter(entry => entry.kind !== 'other'))
-const counts = computed(() => Object.fromEntries(statuses.map(status => [status, checks.value.filter(entry => entry.status === status).length])) as Record<WorkspaceCommandRun['status'], number>)
-const overviewStatus = computed(() => counts.value.failed ? 'failed' : counts.value.running ? 'running' : counts.value.unknown || !checks.value.length ? 'unknown' : 'passed')
+const scopedEntries = computed(() => (scope.value === 'checks' ? checks.value : entries.value))
+const counts = computed(() => Object.fromEntries(statuses.map(status => [status, scopedEntries.value.filter(entry => entry.status === status).length])) as Record<WorkspaceCommandRun['status'], number>)
+const overviewStatus = computed(() => counts.value.failed ? 'failed' : counts.value.running ? 'running' : counts.value.unknown || !scopedEntries.value.length ? 'unknown' : 'passed')
 const overviewIcon = computed(() => statusIcons[overviewStatus.value])
-const overviewLabel = computed(() => !checks.value.length ? 'checksNotVerified' : ({ failed: 'checksNeedAttention', running: 'checksInProgress', unknown: 'checksIncomplete', passed: 'checksCompleted' } as const)[overviewStatus.value])
+const overviewLabel = computed(() => !scopedEntries.value.length ? 'checksNotVerified' : ({ failed: 'checksNeedAttention', running: 'checksInProgress', unknown: 'checksIncomplete', passed: 'checksCompleted' } as const)[overviewStatus.value])
 const visibleEntries = computed(() => (scope.value === 'checks' ? checks.value : entries.value).filter(entry => !failedOnly.value || entry.status === 'failed'))
 function fallbackText(entry: WorkspaceCheck) {
   if (entry.status === 'running') return t('workspace.waitingCheckOutput')
