@@ -94,15 +94,70 @@
         </aside>
         <div class="workspace-main">
           <div v-if="file || fileChanges.length" class="file-toolbar">
-            <span class="file-toolbar__path" :title="file?.path">{{ showFileDiff ? t("workspace.diff") : file?.path }}</span>
-            <div v-if="showViewSwitch" class="file-view-switch" role="group" :aria-label="t('workspace.fileView')">
-              <button type="button" :aria-pressed="fileView === 'source'" @click="fileView = 'source'">{{ t('workspace.source') }}</button>
-              <button v-if="fileChanges.length" type="button" :aria-pressed="fileView === 'diff'" @click="fileView = 'diff'">{{ t('workspace.diff') }}</button>
-              <button v-if="canPreviewFile" type="button" :aria-pressed="fileView === 'preview'" @click="fileView = 'preview'">{{ t('workspace.preview') }}</button>
+            <span class="file-toolbar__path" :title="file?.path">{{
+              showFileDiff ? t("workspace.diff") : file?.path
+            }}</span>
+            <div
+              v-if="showViewSwitch"
+              class="file-view-switch"
+              role="group"
+              :aria-label="t('workspace.fileView')"
+            >
+              <button
+                type="button"
+                :aria-pressed="fileView === 'source'"
+                @click="fileView = 'source'"
+              >
+                {{ t("workspace.source") }}
+              </button>
+              <button
+                v-if="fileChanges.length"
+                type="button"
+                :aria-pressed="fileView === 'diff'"
+                @click="fileView = 'diff'"
+              >
+                {{ t("workspace.diff") }}
+              </button>
+              <button
+                v-if="canPreviewFile"
+                type="button"
+                :aria-pressed="fileView === 'preview'"
+                @click="fileView = 'preview'"
+              >
+                {{ t("workspace.preview") }}
+              </button>
             </div>
-            <button v-if="showFilePreview" type="button" :aria-pressed="mobilePreview" :title="t(mobilePreview ? 'workspace.desktop' : 'workspace.mobile')" :aria-label="t(mobilePreview ? 'workspace.desktop' : 'workspace.mobile')" @click="mobilePreview = !mobilePreview"><t-icon :name="mobilePreview ? 'desktop' : 'mobile'" /></button>
-            <button v-else-if="file && !imageSource && !showFileDiff" type="button" :title="t(copied ? 'workspace.copied' : 'workspace.copy')" :aria-label="t(copied ? 'workspace.copied' : 'workspace.copy')" @click="copySource"><t-icon :name="copied ? 'check' : 'copy'" /></button>
-            <button type="button" :title="t('workspace.refresh')" :aria-label="t('workspace.refresh')" @click="refresh"><t-icon name="refresh" /></button>
+            <button
+              v-if="showFilePreview"
+              type="button"
+              :aria-pressed="mobilePreview"
+              :title="
+                t(mobilePreview ? 'workspace.desktop' : 'workspace.mobile')
+              "
+              :aria-label="
+                t(mobilePreview ? 'workspace.desktop' : 'workspace.mobile')
+              "
+              @click="mobilePreview = !mobilePreview"
+            >
+              <t-icon :name="mobilePreview ? 'desktop' : 'mobile'" />
+            </button>
+            <button
+              v-else-if="file && !imageSource && !showFileDiff"
+              type="button"
+              :title="t(copied ? 'workspace.copied' : 'workspace.copy')"
+              :aria-label="t(copied ? 'workspace.copied' : 'workspace.copy')"
+              @click="copySource"
+            >
+              <t-icon :name="copied ? 'check' : 'copy'" />
+            </button>
+            <button
+              type="button"
+              :title="t('workspace.refresh')"
+              :aria-label="t('workspace.refresh')"
+              @click="refresh"
+            >
+              <t-icon name="refresh" />
+            </button>
           </div>
           <div v-if="error" class="workspace-notice" role="alert">
             <t-icon name="info-circle" /><span>{{ error }}</span
@@ -110,12 +165,18 @@
               {{ t("workspace.retry") }}
             </button>
           </div>
-          <div v-if="showFileDiff" class="diff-file-list" :aria-label="t('workspace.diff')">
+          <div
+            v-if="showFileDiff"
+            class="diff-file-list"
+            :aria-label="t('workspace.diff')"
+          >
             <WorkspaceFileDiff
               v-for="change in fileChanges"
               :key="`${sessionId}:${change.path}`"
               :change="change"
-              @open-source="openFile(relativePath(change.path) || change.path, 'source')"
+              @open-source="
+                openFile(relativePath(change.path) || change.path, 'source')
+              "
             />
           </div>
           <div
@@ -140,9 +201,21 @@
             </div>
           </div>
           <template v-else-if="imageSource && file">
-            <p v-if="imageError" class="workspace-notice" role="alert">{{ t('workspace.imageError') }}</p>
-            <div v-else class="image-preview" tabindex="0" :aria-label="file.path">
-              <img :key="imageSource" :src="imageSource" :alt="file.path" @error="imageError = true" />
+            <p v-if="imageError" class="workspace-notice" role="alert">
+              {{ t("workspace.imageError") }}
+            </p>
+            <div
+              v-else
+              class="image-preview"
+              tabindex="0"
+              :aria-label="file.path"
+            >
+              <img
+                :key="imageSource"
+                :src="imageSource"
+                :alt="file.path"
+                @error="imageError = true"
+              />
             </div>
           </template>
           <template v-else-if="!showFilePreview && !showFileDiff && file">
@@ -151,9 +224,17 @@
             </p>
             <div class="source-scroll" tabindex="0" :aria-label="file.path">
               <div class="source-lines">
-                <div v-for="(line, index) in highlightedLines" :key="index" class="source-row">
-                  <span class="source-gutter" aria-hidden="true">{{ index + 1 }}</span>
-                  <pre class="source-code"><code v-html="line || '&#8203;'" /></pre>
+                <div
+                  v-for="(line, index) in highlightedLines"
+                  :key="index"
+                  class="source-row"
+                >
+                  <span class="source-gutter" aria-hidden="true">{{
+                    index + 1
+                  }}</span>
+                  <pre
+                    class="source-code"
+                  ><code v-html="line || '&#8203;'" /></pre>
                 </div>
               </div>
             </div>
@@ -191,8 +272,18 @@
             </div>
           </template>
           <footer v-if="file && !showFileDiff" class="file-status">
-            <span>{{ t(imageSource ? "workspace.imagePreview" : showFilePreview ? "workspace.previewNote" : "workspace.readOnly") }}</span>
-            <span v-if="!showFilePreview && !imageSource">{{ t("workspace.lines", { count: lineCount }) }}</span>
+            <span>{{
+              t(
+                imageSource
+                  ? "workspace.imagePreview"
+                  : showFilePreview
+                    ? "workspace.previewNote"
+                    : "workspace.readOnly",
+              )
+            }}</span>
+            <span v-if="!showFilePreview && !imageSource">{{
+              t("workspace.lines", { count: lineCount })
+            }}</span>
           </footer>
         </div>
       </div>
@@ -215,7 +306,10 @@ import { useI18n } from "vue-i18n";
 import PanelResizeHandle from "@/components/PanelResizeHandle.vue";
 import WorkspaceFileDiff from "./WorkspaceFileDiff.vue";
 import WorkspaceTestResults from "./WorkspaceTestResults.vue";
-import { formatWorkspaceCode, highlightWorkspaceLines } from "@/utils/workspaceCode";
+import {
+  formatWorkspaceCode,
+  highlightWorkspaceLines,
+} from "@/utils/workspaceCode";
 import { marked } from "marked";
 import { sanitizeMarkdownHTML } from "@/utils/security";
 import {
@@ -333,43 +427,64 @@ const copied = ref(false),
   previewError = ref(""),
   previewLoading = ref(false),
   previewVersion = ref(0);
-type FileView = 'source' | 'diff' | 'preview';
-const fileView = ref<FileView>('source');
+type FileView = "source" | "diff" | "preview";
+const fileView = ref<FileView>("source");
 const imageError = ref(false);
 const imageSource = computed(() => {
   const current = file.value;
-  if (current?.encoding !== 'base64' || !/^image\/(?:png|jpeg|gif|webp|bmp|x-icon|avif)$/.test(current.mime_type || '')) return '';
+  if (
+    current?.encoding !== "base64" ||
+    !/^image\/(?:png|jpeg|gif|webp|bmp|x-icon|avif)$/.test(
+      current.mime_type || "",
+    )
+  )
+    return "";
   return `data:${current.mime_type};base64,${current.content}`;
 });
-watch(imageSource, () => { imageError.value = false; });
+watch(imageSource, () => {
+  imageError.value = false;
+});
 const { changes: fileChanges, activeId: activeFileChange } = useFileChanges();
-const canPreviewFile = computed(
-  () => Boolean(file.value && canPreviewSource(file.value.path)),
+const canPreviewFile = computed(() =>
+  Boolean(file.value && canPreviewSource(file.value.path)),
 );
 const formattedCode = ref<{ source: string } | null>(null);
 watch(
-  () => [props.sessionId, file.value?.path, file.value?.encoding === 'base64' ? undefined : file.value?.content] as const,
+  () =>
+    [
+      props.sessionId,
+      file.value?.path,
+      file.value?.encoding === "base64" ? undefined : file.value?.content,
+    ] as const,
   async ([, path, source], _, onCleanup) => {
     let cancelled = false;
-    onCleanup(() => { cancelled = true; });
+    onCleanup(() => {
+      cancelled = true;
+    });
     formattedCode.value = null;
     if (!path || source === undefined) return;
     const display = await formatWorkspaceCode(source, path);
     if (!cancelled) formattedCode.value = { source: display };
   },
-  { immediate: true, flush: 'sync' },
+  { immediate: true, flush: "sync" },
 );
 // Source always contains the complete file. Changes have their own file list.
 const showFileDiff = computed(
-  () => props.tab === 'source' && fileView.value === 'diff' && fileChanges.value.length > 0,
+  () =>
+    props.tab === "source" &&
+    fileView.value === "diff" &&
+    fileChanges.value.length > 0,
 );
 const showViewSwitch = computed(
-  () => props.tab === 'source' && (canPreviewFile.value || fileChanges.value.length > 0),
+  () =>
+    props.tab === "source" &&
+    (canPreviewFile.value || fileChanges.value.length > 0),
 );
 const showFilePreview = computed(
   () =>
-    !imageSource.value && (props.tab === 'preview' ||
-    (fileView.value === 'preview' && canPreviewFile.value)),
+    !imageSource.value &&
+    (props.tab === "preview" ||
+      (fileView.value === "preview" && canPreviewFile.value)),
 );
 const command = ref(""),
   running = ref(false),
@@ -378,11 +493,13 @@ const runs = ref<
   Array<{ id: number; command: string; result: ProgrammingCommandResult }>
 >([]);
 const testRuns = computed<WorkspaceCommandRun[]>(() => [
-  ...runs.value.map(run => ({
+  ...runs.value.map((run) => ({
     id: `manual:${run.id}`,
     command: run.command,
-    output: [run.result.stdout, run.result.stderr].filter(Boolean).join('\n'),
-    status: (run.result.killed || run.result.exit_code !== 0 ? 'failed' : 'passed') as WorkspaceCommandRun['status'],
+    output: [run.result.stdout, run.result.stderr].filter(Boolean).join("\n"),
+    status: (run.result.killed || run.result.exit_code !== 0
+      ? "failed"
+      : "passed") as WorkspaceCommandRun["status"],
     durationMs: run.result.duration_ms,
     exitCode: run.result.exit_code,
   })),
@@ -396,13 +513,15 @@ let generation = 0,
 const treeRequests = new Map<string, number>();
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 const busy = computed(() => pendingPaths.value.length > 0);
-const content = computed(
-  () => file.value?.encoding === 'base64' ? '' : (formattedCode.value?.source ?? file.value?.content ?? ''),
+const content = computed(() =>
+  file.value?.encoding === "base64"
+    ? ""
+    : (formattedCode.value?.source ?? file.value?.content ?? ""),
 );
-const lineCount = computed(() =>
-  content.value.split("\n").length,
+const lineCount = computed(() => content.value.split("\n").length);
+const highlightedLines = computed(() =>
+  highlightWorkspaceLines(content.value, file.value?.path || ""),
 );
-const highlightedLines = computed(() => highlightWorkspaceLines(content.value, file.value?.path || ''));
 const fileParts = computed(() => {
   const path =
     relativePath(file.value?.path || "") ||
@@ -584,7 +703,11 @@ function clampTreeWidth(width: number): number {
   const cap = body
     ? Math.max(TREE_MIN_WIDTH, body.clientWidth - TREE_CODE_MIN_WIDTH)
     : TREE_MAX_WIDTH;
-  return Math.min(TREE_MAX_WIDTH, cap, Math.max(TREE_MIN_WIDTH, Math.round(width)));
+  return Math.min(
+    TREE_MAX_WIDTH,
+    cap,
+    Math.max(TREE_MIN_WIDTH, Math.round(width)),
+  );
 }
 
 function currentTreeWidth(): number {
@@ -699,7 +822,8 @@ async function refreshInternal(preferFocus: boolean) {
   const rawLiveFocus = pendingDiffPath;
   pendingDiffPath = "";
   const liveFocus = rawLiveFocus
-    ? relativePath(rawLiveFocus) || (rawLiveFocus.startsWith("/") ? "" : rawLiveFocus)
+    ? relativePath(rawLiveFocus) ||
+      (rawLiveFocus.startsWith("/") ? "" : rawLiveFocus)
     : "";
   // A manual refresh keeps the file the user opened; an agent-driven refresh
   // follows focusPath (or a live edit) so the view jumps to whichever file is
@@ -719,23 +843,27 @@ async function refreshInternal(preferFocus: boolean) {
 // per path, so A → B → A lands on the right file each time instead of staying
 // on whatever was open when the turn started.
 let lastFollowedChange = "";
-watch(activeFileChange, async (id) => {
-  if (!id || id === lastFollowedChange) return;
-  lastFollowedChange = id;
-  const change = fileChanges.value.find((item) => item.id === id);
-  if (!change?.live) return;
-  fileView.value = "diff";
-  // Stash the raw path before awaiting: a fresh mount runs the refresh watcher
-  // in the same tick, and it must find this file rather than a restored one.
-  pendingDiffPath = change.path;
-  if (!root.value) await loadDirectory("");
-  const target = relativePath(change.path) || change.path;
-  // An absolute path that does not sit under the tree root is not addressable
-  // by the file API; the agent-driven refresh above is the fallback for it.
-  if (!target || target.startsWith("/")) return;
-  await revealPath(target);
-  await openFile(target, "diff");
-}, { immediate: true });
+watch(
+  activeFileChange,
+  async (id) => {
+    if (!id || id === lastFollowedChange) return;
+    lastFollowedChange = id;
+    const change = fileChanges.value.find((item) => item.id === id);
+    if (!change?.live) return;
+    fileView.value = "diff";
+    // Stash the raw path before awaiting: a fresh mount runs the refresh watcher
+    // in the same tick, and it must find this file rather than a restored one.
+    pendingDiffPath = change.path;
+    if (!root.value) await loadDirectory("");
+    const target = relativePath(change.path) || change.path;
+    // An absolute path that does not sit under the tree root is not addressable
+    // by the file API; the agent-driven refresh above is the fallback for it.
+    if (!target || target.startsWith("/")) return;
+    await revealPath(target);
+    await openFile(target, "diff");
+  },
+  { immediate: true },
+);
 
 async function preparePreview() {
   const current = file.value,
@@ -751,7 +879,7 @@ async function preparePreview() {
   try {
     let source = current.content;
     if (/\.(?:md|markdown)$/i.test(current.path)) {
-      source = `<html><head><style>body{font:15px/1.8 system-ui;padding:24px;color:var(--td-text-color-primary,#292824);max-width:760px;margin:auto;background:var(--td-bg-color-container,#fff)}pre{white-space:pre-wrap;background:var(--td-bg-color-secondarycontainer,#f5f5f3);padding:16px}img{max-width:100%}@media(prefers-color-scheme:dark){body{color:#e5e6dc;background:#252620}pre{background:#2c2d26}}</style></head><body>${sanitizeMarkdownHTML(marked.parse(source, { async: false }) as string)}</body></html>`;
+      source = `<html><head><style>body{font:15px/1.8 system-ui;padding:24px;color:var(--td-text-color-primary,#292824);max-width:760px;margin:auto;background:var(--td-bg-color-container,#fff)}pre{white-space:pre-wrap;background:var(--td-bg-color-secondarycontainer,#f5f5f3);padding:16px}img{max-width:100%}::selection{background:#cfe1f7}@media(prefers-color-scheme:dark){body{color:#e5e5e5;background:#141414}pre{background:#2a2a2a}::selection{background:#365073;color:#e8e8e8}}</style></head><body>${sanitizeMarkdownHTML(marked.parse(source, { async: false }) as string)}</body></html>`;
     }
     const result = await buildWorkspacePreview(
       current.path,
@@ -859,7 +987,10 @@ watch(
   () => showFilePreview.value,
   (preview) => {
     if (preview) void preparePreview();
-    else { previewRequest++; previewLoading.value = false; }
+    else {
+      previewRequest++;
+      previewLoading.value = false;
+    }
   },
 );
 onBeforeUnmount(() => {
@@ -1118,14 +1249,66 @@ button {
   }
 }
 
-.file-status { display: flex; justify-content: space-between; gap: 8px; padding: 6px 10px; border-top: 1px solid var(--td-component-stroke); font-size: 11px; color: var(--td-text-color-placeholder); }
-.file-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--td-component-stroke); }
-.file-toolbar__path { flex: 1; min-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--app-font-family-mono, monospace); font-size: 12px; }
-.file-toolbar button { display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 5px; padding: 6px; background: transparent; color: var(--td-text-color-secondary); cursor: pointer; font: inherit; }
-.file-toolbar button:hover, .file-toolbar button[aria-pressed="true"] { background: var(--td-bg-color-secondarycontainer); color: var(--td-text-color-primary); }
-.file-toolbar button:focus-visible { outline: 2px solid var(--td-brand-color); outline-offset: 2px; }
-.file-view-switch { display: flex; gap: 2px; padding: 2px; border: 1px solid var(--td-component-stroke); border-radius: 7px; }
-.diff-file-list { flex: 1; min-height: 0; overflow: auto; padding: 0 10px 16px; }
+.file-status {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--td-component-stroke);
+  font-size: 11px;
+  color: var(--td-text-color-placeholder);
+}
+.file-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--td-component-stroke);
+}
+.file-toolbar__path {
+  flex: 1;
+  min-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--app-font-family-mono, monospace);
+  font-size: 12px;
+}
+.file-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 5px;
+  padding: 6px;
+  background: transparent;
+  color: var(--td-text-color-secondary);
+  cursor: pointer;
+  font: inherit;
+}
+.file-toolbar button:hover,
+.file-toolbar button[aria-pressed="true"] {
+  background: var(--td-bg-color-secondarycontainer);
+  color: var(--td-text-color-primary);
+}
+.file-toolbar button:focus-visible {
+  outline: 2px solid var(--td-brand-color);
+  outline-offset: 2px;
+}
+.file-view-switch {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--td-component-stroke);
+  border-radius: 7px;
+}
+.diff-file-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 10px 16px;
+}
 .source-scroll {
   overflow: auto;
   flex: 1;
@@ -1135,15 +1318,21 @@ button {
 
   pre {
     margin: 0;
-    font: var(--app-text-md)/1.4 var(--app-font-family-mono, monospace);
+    font: var(--app-text-md) / 1.4 var(--app-font-family-mono, monospace);
     tab-size: 2;
   }
 }
 
-.source-lines { width: 100%; min-width: 0; }
-.source-row { display: grid; grid-template-columns: 4.5em minmax(0, 1fr); }
+.source-lines {
+  width: 100%;
+  min-width: 0;
+}
+.source-row {
+  display: grid;
+  grid-template-columns: 4.5em minmax(0, 1fr);
+}
 .source-gutter {
-  font: var(--app-text-md)/1.4 var(--app-font-family-mono, monospace);
+  font: var(--app-text-md) / 1.4 var(--app-font-family-mono, monospace);
   color: var(--td-text-color-disabled);
   text-align: right;
   padding: 0 14px 0 16px;
@@ -1158,11 +1347,13 @@ button {
   padding: 0 16px 0 8px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  code { font: inherit; white-space: inherit; }
+  code {
+    font: inherit;
+    white-space: inherit;
+  }
 }
 
 .source-code {
-
   :deep(.hljs-keyword),
   :deep(.hljs-doctag),
   :deep(.hljs-meta) {

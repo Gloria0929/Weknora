@@ -44,7 +44,7 @@
             : "light";
         document.documentElement.setAttribute("theme-mode", t);
         /* Match workspace-theme.css before the stylesheet loads. */
-        var bg = t === "dark" ? "#1f201c" : "#f8f8f6";
+        var bg = t === "dark" ? "#141414" : "#f8f8f6";
         document.documentElement.style.background = bg;
         document.documentElement.style.minHeight = "100%";
         document.documentElement.style.colorScheme =
@@ -57,7 +57,7 @@
             if (t === "dark") {
               if (w.WindowSetDarkTheme) w.WindowSetDarkTheme();
               if (w.WindowSetBackgroundColour)
-                w.WindowSetBackgroundColour(31, 32, 28, 255);
+                w.WindowSetBackgroundColour(20, 20, 20, 255);
             } else {
               if (w.WindowSetLightTheme) w.WindowSetLightTheme();
               if (w.WindowSetBackgroundColour)
@@ -111,7 +111,7 @@
           t = window.matchMedia("(prefers-color-scheme:dark)").matches
             ? "dark"
             : "light";
-        var bg = t === "dark" ? "#1f201c" : "#f8f8f6";
+        var bg = t === "dark" ? "#141414" : "#f8f8f6";
         var el = document.getElementById("app");
         if (el) {
           el.style.background = bg;

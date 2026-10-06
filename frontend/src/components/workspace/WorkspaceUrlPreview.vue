@@ -112,7 +112,7 @@
           type="button"
           @click="emit('open-terminal')"
         >
-          {{ t('workspace.viewTerminal') }}
+          {{ t("workspace.viewTerminal") }}
         </button>
         <button
           type="button"
@@ -145,7 +145,7 @@ const props = defineProps<{
   active: boolean;
   revision?: number;
 }>();
-const emit = defineEmits<{ ask: [prompt: string]; 'open-terminal': [] }>();
+const emit = defineEmits<{ ask: [prompt: string]; "open-terminal": [] }>();
 const { t } = useI18n();
 const root = ref<HTMLElement | null>(null);
 const error = ref("");
@@ -262,6 +262,7 @@ onBeforeUnmount(() => {
   background: transparent;
   color: var(--td-text-color-secondary);
   cursor: pointer;
+  margin: 1px;
 }
 .url-toolbar button:hover,
 .url-toolbar a:hover,
