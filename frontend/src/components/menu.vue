@@ -33,109 +33,6 @@
         </div>
       </div>
     </div>
-    <div v-if="false && !uiStore.sidebarCollapsed" class="work-mode-switch" aria-label="工作模式">
-      <button class="work-mode-switch__item" :class="{ 'is-active': currentWorkMode === 'chat' }" type="button"
-        @click="switchWorkMode('chat')">
-        对话
-      </button>
-      <button class="work-mode-switch__item" :class="{ 'is-active': currentWorkMode === 'coding' }" type="button"
-        @click="switchWorkMode('coding')">
-        编程
-      </button>
-    </div>
-    <Teleport v-if="false" defer to=".coding-project-slot">
-      <div v-if="!uiStore.sidebarCollapsed && currentWorkMode === 'coding'" class="coding-project-tree"
-        aria-label="Coding 项目">
-        <div class="coding-project-tree__header">
-          <span>项目</span>
-          <button type="button" class="coding-project-tree__add" title="新建项目" aria-label="新建项目"
-            @click="openCodingProjectDialog">
-            <t-icon name="add" size="16px" />
-          </button>
-        </div>
-        <div v-if="codingProjectsLoading" class="coding-project-tree__loading">
-          <t-loading size="small" />
-        </div>
-        <div v-else-if="codingProjects.length === 0" class="coding-project-tree__empty">
-          点击右上角加号创建项目
-        </div>
-        <div v-else class="coding-project-tree__list">
-          <div v-for="project in codingProjects" :key="project.id" class="coding-project-tree__project">
-            <div class="coding-project-tree__project-line">
-              <button type="button" class="coding-project-tree__row coding-project-tree__row--project"
-                :class="{ 'is-active': codingExpandedProjects.has(project.id) }"
-                @click="toggleCodingProject(project.id)">
-                <t-icon :name="codingExpandedProjects.has(project.id)
-                  ? 'chevron-down'
-                  : 'chevron-right'
-                  " size="14px" />
-                <t-icon name="folder" size="15px" />
-                <span>{{ project.name }}</span>
-              </button>
-              <t-dropdown trigger="click" placement="bottom-right" attach="body"
-                :options="codingProjectMenuOptions(project)" @click="handleCodingProjectMenuClick($event, project)">
-                <button type="button" class="coding-project-tree__add coding-project-tree__more" title="项目操作"
-                  aria-label="项目操作" @click.stop>
-                  <t-icon name="ellipsis" size="15px" />
-                </button>
-              </t-dropdown>
-              <button type="button" class="coding-project-tree__add" title="添加本地文件夹" aria-label="添加本地文件夹"
-                @click.stop="addCodingFolderToProject(project.id)">
-                <t-icon name="add" size="14px" />
-              </button>
-            </div>
-            <div v-if="codingExpandedProjects.has(project.id)" class="coding-project-tree__children">
-              <div v-if="codingFoldersLoading[project.id]" class="coding-project-tree__loading">
-                <t-loading size="small" />
-              </div>
-              <div v-else-if="!(codingFoldersByProject[project.id] || []).length" class="coding-project-tree__empty">
-                还没有本地文件夹
-              </div>
-              <div v-for="folder in codingFoldersByProject[project.id] || []" :key="folder.id"
-                class="coding-project-tree__folder">
-                <div class="coding-project-tree__folder-line">
-                  <button type="button" class="coding-project-tree__row coding-project-tree__row--folder" :class="{
-                    'is-active': codingExpandedFolders.has(folder.id),
-                  }" @click="toggleCodingFolder(project.id, folder.id)">
-                    <t-icon :name="codingExpandedFolders.has(folder.id)
-                      ? 'chevron-down'
-                      : 'chevron-right'
-                      " size="13px" />
-                    <t-icon name="folder-open" size="14px" />
-                    <span :title="folder.local_path">{{ folder.name }}</span>
-                  </button>
-                  <button type="button" class="coding-project-tree__add coding-project-tree__add--thread"
-                    title="在文件夹下新建对话" aria-label="在文件夹下新建对话" :disabled="codingThreadCreating === folder.id" @click.stop="
-                      createCodingThreadFromFolder(project.id, folder.id)
-                      ">
-                    <t-icon :name="codingThreadCreating === folder.id ? 'loading' : 'add'
-                      " size="14px" />
-                  </button>
-                </div>
-                <div v-if="codingExpandedFolders.has(folder.id)" class="coding-project-tree__threads">
-                  <div v-if="codingThreadsLoading[folder.id]" class="coding-project-tree__loading">
-                    <t-loading size="small" />
-                  </div>
-                  <button v-for="thread in codingThreadsByFolder[folder.id] || []" :key="thread.id" type="button"
-                    class="coding-project-tree__row coding-project-tree__row--thread"
-                    :class="{ 'is-active': route.params.chatid === thread.id }"
-                    @click="router.push(`/platform/coding/${thread.id}`)">
-                    <t-icon name="chat" size="13px" />
-                    <span>{{ thread.title || "未命名对话" }}</span>
-                  </button>
-                  <div v-if="
-                    !codingThreadsLoading[folder.id] &&
-                    !(codingThreadsByFolder[folder.id] || []).length
-                  " class="coding-project-tree__empty">
-                    点击加号创建对话
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
     <!-- 折叠时：展开按钮 -->
     <t-tooltip v-if="uiStore.sidebarCollapsed" :content="t('menu.expandSidebar')" placement="right">
       <div class="menu_item sidebar-toggle-item" @click="uiStore.toggleSidebar">
@@ -248,9 +145,6 @@
           </div>
         </t-tooltip>
       </div>
-
-      <div class="coding-project-slot" />
-
       <!-- 历史会话：按来源筛选后统一按日期分组展示 -->
       <div class="submenu" v-if="!uiStore.sidebarCollapsed">
         <!-- Stable, always-mounted source filter: reserving its row here
@@ -351,67 +245,6 @@
     <div class="menu_bottom">
       <UserMenu />
     </div>
-
-    <t-dialog v-model:visible="codingProjectDialogOpen" header="新建 Coding 项目"
-      :confirm-btn="{ content: '创建', loading: codingProjectCreating }" @confirm="createCodingProjectFromMenu">
-      <div class="coding-project-dialog-form">
-        <label>
-          项目名称
-          <t-input v-model="codingProjectDraft.name" />
-        </label>
-        <label>
-          项目目录（可选）
-          <div class="coding-project-dialog-path">
-            <t-input v-model="codingProjectDraft.localPath" clearable placeholder="选择或输入本地绝对路径" />
-            <t-button size="small" variant="outline" :loading="codingProjectPicking" @click="pickCodingProjectFolder">
-              <t-icon name="folder-open" />
-              选择
-            </t-button>
-          </div>
-        </label>
-        <label>
-          说明（可选）
-          <t-textarea v-model="codingProjectDraft.description" :autosize="{ minRows: 2, maxRows: 4 }" />
-        </label>
-        <p class="coding-project-dialog-form__note">
-          {{
-            codingPickerUnavailable
-              ? "当前运行环境没有原生选择器，请直接填写本机文件夹的绝对路径。"
-              : "项目和文件夹只保存本机目录引用，不会复制代码或关联知识库。"
-          }}
-        </p>
-      </div>
-    </t-dialog>
-    <t-dialog v-model:visible="codingFolderDialogOpen" header="添加本地文件夹"
-      :confirm-btn="{ content: '添加', loading: codingFolderAdding }" @confirm="confirmCodingFolder">
-      <div class="coding-project-dialog-form">
-        <label>
-          文件夹路径
-          <div class="coding-project-dialog-path">
-            <t-input v-model="codingFolderDraft.localPath" clearable placeholder="例如：/Users/you/Projects/MyApp" />
-            <t-button size="small" variant="outline" :loading="codingProjectPicking" @click="pickCodingFolderForDialog">
-              <t-icon name="folder-open" />
-              选择
-            </t-button>
-          </div>
-        </label>
-        <label>
-          显示名称（可选）
-          <t-input v-model="codingFolderDraft.name" placeholder="默认使用目录名" />
-        </label>
-        <p class="coding-project-dialog-form__note">
-          {{
-            codingPickerUnavailable
-              ? "当前运行环境没有原生选择器，请粘贴本机文件夹的绝对路径。"
-              : "文件夹只保存本机目录引用，不会复制代码。"
-          }}
-        </p>
-      </div>
-    </t-dialog>
-    <t-dialog v-model:visible="codingProjectRenameDialogOpen" header="重命名 Coding 项目"
-      :confirm-btn="{ content: '保存', loading: codingProjectRenaming }" @confirm="renameCodingProject">
-      <t-input v-model="codingProjectRenameName" placeholder="项目名称" />
-    </t-dialog>
   </div>
 </template>
 
@@ -490,24 +323,6 @@ import UserMenu from "@/components/UserMenu.vue";
 import TenantSelector from "@/components/TenantSelector.vue";
 import { useI18n } from "vue-i18n";
 import { getSystemInfo } from "@/api/system";
-import {
-  createCodingFolder,
-  createCodingProject,
-  createCodingThread,
-  deleteCodingProject,
-  listCodingFolders,
-  listCodingProjects,
-  listCodingThreads,
-  updateCodingProject,
-  type CodingProject,
-  type CodingProjectFolder,
-  type CodingThread,
-} from "@/api/projects";
-import {
-  isHostProjectPickerUnavailable,
-  pickHostProjectDir,
-} from "@/utils/desktopProjectDir";
-import { projectDirBasename } from "@/utils/hostWorkspace";
 
 const chatResources = useChatResourcesStore();
 // Platform logos reused from IMChannelsOverviewPanel — keeps the session list
@@ -694,39 +509,10 @@ const isInCreatChat = computed<boolean>(() => {
 });
 
 // 是否在对话详情页
-const isInChatDetail = computed<boolean>(
-  () => route.name === "chat" || route.name === "codingChat",
-);
-const currentWorkMode = computed<"chat" | "coding">(() =>
-  route.name === "codingCreateChat" || route.name === "codingChat"
-    ? "coding"
-    : "chat",
-);
-const sessionPath = (id: string) =>
-  `${currentWorkMode.value === "coding" ? "coding" : "chat"}/${id}`;
-
-const codingProjects = ref<CodingProject[]>([]);
-const codingFoldersByProject = ref<Record<string, CodingProjectFolder[]>>({});
-const codingThreadsByFolder = ref<Record<string, CodingThread[]>>({});
-const codingExpandedProjects = ref<Set<string>>(new Set());
-const codingExpandedFolders = ref<Set<string>>(new Set());
-const codingFoldersLoading = ref<Record<string, boolean>>({});
-const codingThreadsLoading = ref<Record<string, boolean>>({});
-const codingProjectsLoading = ref(false);
-const codingThreadCreating = ref("");
-const codingProjectDialogOpen = ref(false);
-const codingProjectCreating = ref(false);
-const codingProjectPicking = ref(false);
-const codingPickerUnavailable = ref(false);
-const codingProjectDraft = ref({ name: "", localPath: "", description: "" });
-const codingFolderDialogOpen = ref(false);
-const codingFolderAdding = ref(false);
-const codingFolderProjectId = ref("");
-const codingFolderDraft = ref({ name: "", localPath: "" });
-const codingProjectRenameDialogOpen = ref(false);
-const codingProjectRenaming = ref(false);
-const codingProjectRenameTarget = ref<CodingProject | null>(null);
-const codingProjectRenameName = ref("");
+const isInChatDetail = computed<boolean>(() => route.name === "chat");
+// Every conversation now shares the same chat route; the sidebar no longer has
+// a separate coding mode.
+const sessionPath = (id: string) => `chat/${id}`;
 
 // 是否在智能体列表页面
 const isInAgentList = computed<boolean>(() => route.name === "agentList");
@@ -830,14 +616,8 @@ const dateBucketLabels = computed<Record<DateBucketKey, string>>(() => ({
 const filteredGroupedSessions = computed(() => {
   const bucket = activeBucket.value;
   if (!bucket?.items.length) return [];
-  const items =
-    currentWorkMode.value === "coding"
-      ? bucket.items.filter(
-        (item) => !item.project_id && !item.project_folder_id,
-      )
-      : bucket.items;
   return groupSessionsByDate(
-    items.map((item) => ({
+    bucket.items.map((item) => ({
       ...item,
       path: sessionPath(item.id),
       title: item.title || "",
@@ -1240,7 +1020,7 @@ const probeChannelBucketCounts = async (keys: string[], token: number) => {
           1,
           1,
           bucket.apiSource,
-          currentWorkMode.value,
+          "chat",
         );
         if (token !== bucketRequestToken) return;
         sessionBuckets.value = {
@@ -1274,7 +1054,7 @@ const loadBucketPage = async (key: string, page?: number, token?: number) => {
       nextPage,
       SIDEBAR_BUCKET_PAGE_SIZE,
       bucket.apiSource,
-      currentWorkMode.value,
+      "chat",
     );
     if (activeToken !== bucketRequestToken) return;
     const rows = (res?.data || []).map((item: any) => mapSessionRow(item));
@@ -1452,29 +1232,6 @@ const loadSessionOriginMeta = async () => {
 const handleSessionMutation = (event: Event) => {
   const detail = (event as CustomEvent<SessionMutationDetail>).detail;
   if (!detail?.sessionId) return;
-  if (detail.removed) {
-    const nextThreads: Record<string, CodingThread[]> = {};
-    for (const [folderId, threads] of Object.entries(
-      codingThreadsByFolder.value,
-    )) {
-      nextThreads[folderId] = threads.filter(
-        (thread) => thread.id !== detail.sessionId,
-      );
-    }
-    codingThreadsByFolder.value = nextThreads;
-  } else if (detail.patch?.title) {
-    const nextThreads: Record<string, CodingThread[]> = {};
-    for (const [folderId, threads] of Object.entries(
-      codingThreadsByFolder.value,
-    )) {
-      nextThreads[folderId] = threads.map((thread) =>
-        thread.id === detail.sessionId
-          ? { ...thread, title: detail.patch?.title || thread.title }
-          : thread,
-      );
-    }
-    codingThreadsByFolder.value = nextThreads;
-  }
   if (detail.removed || detail.messagesCleared)
     sessionActivity.update(detail.sessionId, false);
   if (detail.patch) {
@@ -1490,363 +1247,10 @@ const handleSessionMutation = (event: Event) => {
     );
     syncMenuStoreFromBuckets();
     if (detail.sessionId === route.params.chatid) {
-      router.push(
-        currentWorkMode.value === "coding"
-          ? "/platform/coding/new"
-          : "/platform/creatChat",
-      );
+      router.push("/platform/creatChat");
     }
   }
 };
-
-async function loadCodingProjects() {
-  if (currentWorkMode.value !== "coding") return;
-  codingProjectsLoading.value = true;
-  try {
-    const response = await listCodingProjects();
-    codingProjects.value = response.data || [];
-  } catch (error: any) {
-    MessagePlugin.error(error?.message || "读取 Coding 项目失败");
-  } finally {
-    codingProjectsLoading.value = false;
-  }
-}
-
-async function loadCodingFolders(projectId: string) {
-  codingFoldersLoading.value = {
-    ...codingFoldersLoading.value,
-    [projectId]: true,
-  };
-  try {
-    const response = await listCodingFolders(projectId);
-    codingFoldersByProject.value = {
-      ...codingFoldersByProject.value,
-      [projectId]: response.data || [],
-    };
-  } catch (error: any) {
-    MessagePlugin.error(error?.message || "读取项目文件夹失败");
-  } finally {
-    codingFoldersLoading.value = {
-      ...codingFoldersLoading.value,
-      [projectId]: false,
-    };
-  }
-}
-
-async function loadCodingThreads(projectId: string, folderId: string) {
-  codingThreadsLoading.value = {
-    ...codingThreadsLoading.value,
-    [folderId]: true,
-  };
-  try {
-    const response = await listCodingThreads(projectId, folderId);
-    codingThreadsByFolder.value = {
-      ...codingThreadsByFolder.value,
-      [folderId]: response.data || [],
-    };
-  } catch (error: any) {
-    MessagePlugin.error(error?.message || "读取文件夹对话失败");
-  } finally {
-    codingThreadsLoading.value = {
-      ...codingThreadsLoading.value,
-      [folderId]: false,
-    };
-  }
-}
-
-async function toggleCodingProject(projectId: string) {
-  const expanded = new Set(codingExpandedProjects.value);
-  if (expanded.has(projectId)) {
-    expanded.delete(projectId);
-  } else {
-    expanded.add(projectId);
-    if (!codingFoldersByProject.value[projectId])
-      await loadCodingFolders(projectId);
-  }
-  codingExpandedProjects.value = expanded;
-}
-
-async function toggleCodingFolder(projectId: string, folderId: string) {
-  const expanded = new Set(codingExpandedFolders.value);
-  if (expanded.has(folderId)) {
-    expanded.delete(folderId);
-  } else {
-    expanded.add(folderId);
-    if (!codingThreadsByFolder.value[folderId])
-      await loadCodingThreads(projectId, folderId);
-  }
-  codingExpandedFolders.value = expanded;
-}
-
-function openCodingProjectDialog() {
-  codingProjectDraft.value = { name: "", localPath: "", description: "" };
-  codingPickerUnavailable.value = false;
-  codingProjectDialogOpen.value = true;
-}
-
-const codingProjectMenuOptions = (_project: CodingProject) => [
-  {
-    content: "重命名项目",
-    value: "rename",
-    prefixIcon: () => h(TIcon, { name: "edit-1" }),
-  },
-  {
-    content: "删除项目",
-    value: "delete",
-    theme: "error" as const,
-    prefixIcon: () => h(TIcon, { name: "delete" }),
-  },
-];
-
-function handleCodingProjectMenuClick(
-  data: { value: string },
-  project: CodingProject,
-) {
-  if (data?.value === "rename") {
-    codingProjectRenameTarget.value = project;
-    codingProjectRenameName.value = project.name;
-    codingProjectRenameDialogOpen.value = true;
-  } else if (data?.value === "delete") {
-    confirmDeleteCodingProject(project);
-  }
-}
-
-async function renameCodingProject() {
-  const project = codingProjectRenameTarget.value;
-  const name = codingProjectRenameName.value.trim();
-  if (!project || !name) {
-    MessagePlugin.warning("请填写项目名称");
-    return;
-  }
-  codingProjectRenaming.value = true;
-  try {
-    const response = await updateCodingProject(project.id, { name });
-    codingProjects.value = codingProjects.value.map((item) =>
-      item.id === project.id ? response.data : item,
-    );
-    codingProjectRenameDialogOpen.value = false;
-    MessagePlugin.success("项目名称已更新");
-  } catch (error: any) {
-    MessagePlugin.error(error?.message || "重命名项目失败");
-  } finally {
-    codingProjectRenaming.value = false;
-  }
-}
-
-function confirmDeleteCodingProject(project: CodingProject) {
-  const dialog = DialogPlugin.confirm({
-    header: "删除 Coding 项目",
-    body: `确定删除项目“${project.name}”吗？项目下仍有文件夹或对话时无法删除。`,
-    confirmBtn: { content: "删除", theme: "danger" as const },
-    cancelBtn: "取消",
-    theme: "warning",
-    onConfirm: async () => {
-      try {
-        await deleteCodingProject(project.id);
-        codingProjects.value = codingProjects.value.filter(
-          (item) => item.id !== project.id,
-        );
-        const folders = { ...codingFoldersByProject.value };
-        delete folders[project.id];
-        codingFoldersByProject.value = folders;
-        dialog.destroy();
-        MessagePlugin.success("项目已删除");
-      } catch (error: any) {
-        MessagePlugin.error(error?.message || "删除项目失败");
-      }
-    },
-    onCancel: () => dialog.destroy(),
-  });
-}
-
-async function pickCodingProjectFolder() {
-  if (codingProjectPicking.value) return;
-  codingProjectPicking.value = true;
-  try {
-    const picked = await pickHostProjectDir();
-    if (picked) codingProjectDraft.value.localPath = picked;
-  } catch (error: any) {
-    if (
-      isHostProjectPickerUnavailable(error) ||
-      error?.code === "HOST_PROJECT_PICKER_UNAVAILABLE"
-    ) {
-      codingPickerUnavailable.value = true;
-      MessagePlugin.warning("当前环境不支持原生选择，请直接输入本地目录路径");
-    } else {
-      MessagePlugin.error(error?.message || "选择本地文件夹失败");
-    }
-  } finally {
-    codingProjectPicking.value = false;
-  }
-}
-
-function openCodingFolderDialog(projectId: string) {
-  codingFolderProjectId.value = projectId;
-  codingFolderDraft.value = { name: "", localPath: "" };
-  codingFolderDialogOpen.value = true;
-}
-
-async function pickCodingFolderForDialog() {
-  if (codingProjectPicking.value) return;
-  codingProjectPicking.value = true;
-  try {
-    const picked = await pickHostProjectDir();
-    if (picked) codingFolderDraft.value.localPath = picked;
-  } catch (error: any) {
-    if (
-      isHostProjectPickerUnavailable(error) ||
-      error?.code === "HOST_PROJECT_PICKER_UNAVAILABLE"
-    ) {
-      codingPickerUnavailable.value = true;
-      MessagePlugin.warning("当前环境不支持原生选择，请直接输入本地目录路径");
-    } else {
-      MessagePlugin.error(error?.message || "选择本地文件夹失败");
-    }
-  } finally {
-    codingProjectPicking.value = false;
-  }
-}
-
-async function saveCodingFolder(
-  projectId: string,
-  localPath: string,
-  name = "",
-) {
-  const normalizedPath = localPath.trim();
-  if (!normalizedPath) {
-    MessagePlugin.warning("请输入本地文件夹路径");
-    return false;
-  }
-  if (!/^\/(?:[^/]|$)|^[A-Za-z]:[\\/]|^\\\\/.test(normalizedPath)) {
-    MessagePlugin.warning("请输入本地文件夹的绝对路径");
-    return false;
-  }
-  const response = await createCodingFolder(projectId, {
-    name: name.trim() || projectDirBasename(normalizedPath),
-    local_path: normalizedPath,
-  });
-  codingFoldersByProject.value = {
-    ...codingFoldersByProject.value,
-    [projectId]: [
-      response.data,
-      ...(codingFoldersByProject.value[projectId] || []),
-    ],
-  };
-  const expanded = new Set(codingExpandedProjects.value);
-  expanded.add(projectId);
-  codingExpandedProjects.value = expanded;
-  return true;
-}
-
-async function confirmCodingFolder() {
-  const projectId = codingFolderProjectId.value;
-  if (!projectId || !codingFolderDraft.value.localPath.trim()) {
-    MessagePlugin.warning("请输入本地文件夹路径");
-    return;
-  }
-  codingFolderAdding.value = true;
-  try {
-    if (
-      await saveCodingFolder(
-        projectId,
-        codingFolderDraft.value.localPath,
-        codingFolderDraft.value.name,
-      )
-    ) {
-      codingFolderDialogOpen.value = false;
-      MessagePlugin.success("本地文件夹已添加");
-    }
-  } catch (error: any) {
-    MessagePlugin.error(error?.message || "添加本地文件夹失败");
-  } finally {
-    codingFolderAdding.value = false;
-  }
-}
-
-async function addCodingFolderToProject(projectId: string) {
-  if (codingProjectPicking.value) return;
-  codingProjectPicking.value = true;
-  try {
-    const localPath = await pickHostProjectDir();
-    if (!localPath) return;
-    if (await saveCodingFolder(projectId, localPath))
-      MessagePlugin.success("本地文件夹已添加");
-  } catch (error: any) {
-    if (
-      isHostProjectPickerUnavailable(error) ||
-      error?.code === "HOST_PROJECT_PICKER_UNAVAILABLE"
-    ) {
-      codingPickerUnavailable.value = true;
-      openCodingFolderDialog(projectId);
-    } else {
-      MessagePlugin.error(error?.message || "添加本地文件夹失败");
-    }
-  } finally {
-    codingProjectPicking.value = false;
-  }
-}
-
-async function createCodingProjectFromMenu() {
-  const name = codingProjectDraft.value.name.trim();
-  if (!name) {
-    MessagePlugin.warning("请填写项目名称");
-    return;
-  }
-  codingProjectCreating.value = true;
-  try {
-    const response = await createCodingProject({
-      name,
-      description: codingProjectDraft.value.description.trim(),
-    });
-    const project = response.data;
-    codingProjects.value = [project, ...codingProjects.value];
-    codingProjectDialogOpen.value = false;
-    const expanded = new Set(codingExpandedProjects.value);
-    expanded.add(project.id);
-    codingExpandedProjects.value = expanded;
-
-    if (codingProjectDraft.value.localPath) {
-      try {
-        await saveCodingFolder(project.id, codingProjectDraft.value.localPath);
-      } catch (error: any) {
-        MessagePlugin.warning(error?.message || "项目已创建，但文件夹添加失败");
-      }
-    } else {
-      await loadCodingFolders(project.id);
-    }
-    MessagePlugin.success("Coding 项目已创建");
-  } catch (error: any) {
-    MessagePlugin.error(error?.message || "创建 Coding 项目失败");
-  } finally {
-    codingProjectCreating.value = false;
-  }
-}
-
-async function createCodingThreadFromFolder(
-  projectId: string,
-  folderId: string,
-) {
-  if (codingThreadCreating.value) return;
-  codingThreadCreating.value = folderId;
-  try {
-    const response = await createCodingThread(projectId, folderId);
-    codingThreadsByFolder.value = {
-      ...codingThreadsByFolder.value,
-      [folderId]: [
-        response.data,
-        ...(codingThreadsByFolder.value[folderId] || []),
-      ],
-    };
-    const expanded = new Set(codingExpandedFolders.value);
-    expanded.add(folderId);
-    codingExpandedFolders.value = expanded;
-    await router.push(`/platform/coding/${response.data.id}`);
-  } catch (error: any) {
-    MessagePlugin.error(error?.message || "创建对话失败，请确认该目录已授权");
-  } finally {
-    codingThreadCreating.value = "";
-  }
-}
 
 onMounted(async () => {
   sessionActivityTimer = setInterval(() => {
@@ -1860,7 +1264,7 @@ onMounted(async () => {
         : "";
   currentpath.value = routeName;
   if (route.params.chatid) {
-    currentSecondpath.value = `${routeName === "codingChat" ? "coding" : "chat"}/${route.params.chatid}`;
+    currentSecondpath.value = `chat/${route.params.chatid}`;
   }
 
   window.addEventListener(SESSION_MUTATION_EVENT, handleSessionMutation);
@@ -1879,7 +1283,6 @@ onMounted(async () => {
 
   await loadSessionOriginMeta();
   await getMessageList();
-  if (currentWorkMode.value === "coding") await loadCodingProjects();
   const initialChatId = route.params.chatid as string | undefined;
   if (initialChatId) {
     ensureSessionInSidebar(initialChatId);
@@ -1901,12 +1304,6 @@ onUnmounted(() => {
   window.removeEventListener(SESSION_MUTATION_EVENT, handleSessionMutation);
 });
 
-watch(currentWorkMode, (mode) => {
-  if (mode === "coding") {
-    void loadCodingProjects();
-  }
-});
-
 watch([() => route.name, () => route.params], (newvalue, oldvalue) => {
   const nameStr =
     typeof newvalue[0] === "string"
@@ -1915,14 +1312,8 @@ watch([() => route.name, () => route.params], (newvalue, oldvalue) => {
         ? String(newvalue[0])
         : "";
   currentpath.value = nameStr;
-  const wasCoding =
-    oldvalue?.[0] === "codingCreateChat" || oldvalue?.[0] === "codingChat";
-  const isCoding = nameStr === "codingCreateChat" || nameStr === "codingChat";
-  if (wasCoding !== isCoding) {
-    void getMessageList();
-  }
   if (newvalue[1].chatid) {
-    currentSecondpath.value = `${nameStr === "codingChat" ? "coding" : "chat"}/${newvalue[1].chatid}`;
+    currentSecondpath.value = `chat/${newvalue[1].chatid}`;
   } else {
     currentSecondpath.value = "";
   }
@@ -1930,7 +1321,7 @@ watch([() => route.name, () => route.params], (newvalue, oldvalue) => {
   // 创建新会话时 creatChat 会先 updataMenuChildren，再跳转 chat/:id。
   // 侧栏实际渲染 sessionBuckets，需按 buckets 判断是否缺失，不能把 menuStore 当真相来源。
   const newChatId = (newvalue[1] as any)?.chatid as string | undefined;
-  if ((nameStr === "chat" || nameStr === "codingChat") && newChatId) {
+  if (nameStr === "chat" && newChatId) {
     ensureSessionInSidebar(newChatId);
     void syncActiveBucketFromChat(newChatId);
   }
@@ -2005,20 +1396,6 @@ const handleMenuClick = async (path: string) => {
   }
 };
 
-const switchWorkMode = (mode: "chat" | "coding") => {
-  if (mode === "coding") {
-    router.push("/platform/coding");
-    return;
-  }
-  if (
-    route.name !== "globalCreatChat" &&
-    route.name !== "kbCreatChat" &&
-    route.name !== "chat"
-  ) {
-    router.push("/platform/creatChat");
-  }
-};
-
 // 处理退出登录确认
 const handleLogout = () => {
   gotopage("logout");
@@ -2050,10 +1427,6 @@ const gotopage = async (path: string) => {
     return;
   } else {
     if (path === "creatChat") {
-      if (currentWorkMode.value === "coding") {
-        router.push("/platform/coding/new");
-        return;
-      }
       // 如果在知识库详情页，跳转到全局对话创建页
       if (isInKnowledgeBase.value) {
         router.push("/platform/creatChat");
@@ -2170,184 +1543,6 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
     height: 50px;
     flex-shrink: 0;
     padding: 0 10px 0 var(--sidebar-inset-x);
-  }
-
-  .work-mode-switch {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 3px;
-    margin: 10px 0;
-    padding: 3px;
-    border-radius: var(--app-radius-sm);
-    background: var(--td-bg-color-container-hover);
-  }
-
-  .work-mode-switch__item {
-    min-height: 28px;
-    border: 0;
-    border-radius: var(--app-radius-sm);
-    background: transparent;
-    color: var(--td-text-color-secondary);
-    cursor: pointer;
-    font-size: var(--app-text-sm);
-    font-weight: 600;
-
-    &:hover {
-      color: var(--td-text-color-primary);
-    }
-
-    &.is-active {
-      background: var(--td-bg-color-container);
-      color: var(--td-text-color-primary);
-      box-shadow: var(--td-shadow-1);
-    }
-  }
-
-  .coding-project-tree {
-    flex: 0 0 auto;
-    max-height: 42vh;
-    margin: 0 0 8px;
-    padding: 0 4px 8px;
-    overflow: auto;
-    border-bottom: 1px solid var(--td-component-stroke);
-  }
-
-  .coding-project-tree__header,
-  .coding-project-tree__project-line,
-  .coding-project-tree__folder-line {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .coding-project-tree__header {
-    justify-content: space-between;
-    min-height: 28px;
-    padding: 0 6px;
-    color: var(--td-text-color-secondary);
-    font-size: var(--app-text-sm);
-    font-weight: 600;
-  }
-
-  .coding-project-tree__add {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    border: 0;
-    border-radius: var(--app-radius-xs);
-    background: transparent;
-    color: var(--td-text-color-secondary);
-    cursor: pointer;
-  }
-
-  .coding-project-tree__add:hover:not(:disabled) {
-    background: var(--td-bg-color-container-hover);
-    color: var(--td-text-color-primary);
-  }
-
-  .coding-project-tree__add:disabled {
-    cursor: wait;
-    opacity: 0.55;
-  }
-
-  .coding-project-tree__list,
-  .coding-project-tree__children,
-  .coding-project-tree__threads {
-    display: grid;
-    gap: 1px;
-  }
-
-  .coding-project-tree__children {
-    margin-left: 10px;
-  }
-
-  .coding-project-tree__threads {
-    margin-left: 18px;
-  }
-
-  .coding-project-tree__row {
-    display: flex;
-    align-items: center;
-    min-width: 0;
-    flex: 1;
-    gap: 5px;
-    min-height: 28px;
-    padding: 4px 6px;
-    border: 0;
-    border-radius: var(--app-radius-xs);
-    background: transparent;
-    color: var(--td-text-color-primary);
-    text-align: left;
-    cursor: pointer;
-    font-size: var(--app-text-sm);
-  }
-
-  .coding-project-tree__row span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .coding-project-tree__row:hover,
-  .coding-project-tree__row.is-active {
-    background: var(--td-bg-color-container-hover);
-  }
-
-  .coding-project-tree__row--folder {
-    color: var(--td-text-color-secondary);
-  }
-
-  .coding-project-tree__row--thread {
-    width: 100%;
-    color: var(--td-text-color-secondary);
-  }
-
-  .coding-project-tree__row--thread.is-active {
-    color: var(--td-text-color-primary);
-  }
-
-  .coding-project-tree__empty,
-  .coding-project-tree__loading {
-    padding: 4px 8px;
-    color: var(--td-text-color-placeholder);
-    font-size: var(--app-text-xs);
-  }
-
-  .coding-project-tree__folder-line .coding-project-tree__add--thread {
-    flex: 0 0 24px;
-  }
-
-  .coding-project-dialog-form {
-    display: grid;
-    gap: 14px;
-  }
-
-  .coding-project-dialog-form label {
-    display: grid;
-    gap: 6px;
-    color: var(--td-text-color-secondary);
-    font-size: var(--app-text-md);
-  }
-
-  .coding-project-dialog-path {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .coding-project-dialog-path .t-input {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .coding-project-dialog-form__note {
-    margin: 0;
-    color: var(--td-text-color-placeholder);
-    font-size: var(--app-text-sm);
-    line-height: 1.6;
   }
 
   .sidebar-toggle {

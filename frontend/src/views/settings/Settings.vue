@@ -12,7 +12,11 @@
             role="button"
             tabindex="0"
             :aria-current="currentSection === item.key ? 'page' : undefined"
-            :aria-expanded="item.children?.length ? expandedMenus.includes(item.key) : undefined"
+            :aria-expanded="
+              item.children?.length
+                ? expandedMenus.includes(item.key)
+                : undefined
+            "
             :class="[
               'nav-item',
               {
@@ -164,7 +168,9 @@
                 :key="childIndex"
                 role="button"
                 tabindex="0"
-                :aria-current="currentSubSection === child.key ? 'page' : undefined"
+                :aria-current="
+                  currentSubSection === child.key ? 'page' : undefined
+                "
                 :class="[
                   'submenu-item',
                   { active: currentSubSection === child.key },
@@ -486,7 +492,7 @@ const navItems = computed(() => {
   const all: NavItem[] = [
     { key: "general", icon: "setting", label: t("general.title") },
     { key: "ollama", icon: "server", label: "Ollama" },
-    { key: "weknoracloud", icon: "", label: "WeKnora Cloud" },
+    // { key: "weknoracloud", icon: "", label: "WeKnora Cloud" },
     {
       key: "models",
       icon: "control-platform",
