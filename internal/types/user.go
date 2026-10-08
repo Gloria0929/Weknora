@@ -9,6 +9,39 @@ import (
 	"gorm.io/gorm"
 )
 
+// SessionFolderEntry is one folder in the sidebar's "项目" section.
+type SessionFolderEntry struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	// Collapsed is per-folder expand state. Kept alongside the folder so a
+	// fresh device restores the sidebar exactly as the user left it.
+	Collapsed bool `json:"collapsed,omitempty"`
+}
+
+// SessionFolderState is the sidebar "项目" layout for ONE workspace: the
+// folder list, which session sits in which folder, and the sort mode.
+type SessionFolderState struct {
+	Folders     []SessionFolderEntry `json:"folders"`
+	Assignments map[string]string    `json:"assignments,omitempty"`
+	// SortMode is "recent" or "manual"; empty means the client default.
+	SortMode string `json:"sort_mode,omitempty"`
+	// ProjectsCollapsed is whether the whole "项目" section is collapsed.
+	ProjectsCollapsed bool `json:"projects_collapsed,omitempty"`
+}
+
+// SessionFolders maps workspace (tenant) id, as a string, to that
+// workspace's folder layout. It exists because preferences are stored per
+// USER while the folder layout is per user+workspace: one blob has to hold
+// every workspace the user has organised. Sessions themselves are already
+// tenant-scoped, so a single flat layout would leak folder names across
+// workspaces.
+type SessionFolders map[string]SessionFolderState
+
+// MaxSessionFoldersBytes caps the encoded layout. Preferences is one jsonb
+// column shared by every preference key, so an unbounded client blob would
+// bloat every /auth/me response.
+const MaxSessionFoldersBytes = 64 * 1024
+
 // UserPreferences holds per-user preferences persisted server-side
 // so they sync across devices/browsers. Fields are pointers so we can
 // distinguish "client didn't send this key" (leave existing value alone)
@@ -49,6 +82,17 @@ type UserPreferences struct {
 	// UI hides self-service password rotation until the user sets a known
 	// password via ChangePassword (which clears this flag).
 	OidcOnlyLogin *bool `json:"oidc_only_login,omitempty"`
+
+	// SessionFolders is the sidebar "项目" folder layout, keyed by workspace
+	// id — see the SessionFolders doc comment for why it is nested by
+	// workspace. Without it the layout lives only in the browser's
+	// localStorage, so signing in from another device loses it.
+	//
+	// nil = client never sent this key (leave the stored layout alone).
+	// Non-nil = merge per workspace key: a client only ever reports the
+	// workspace it is currently showing, so replacing the whole map would
+	// wipe every other workspace's layout.
+	SessionFolders *SessionFolders `json:"session_folders,omitempty"`
 }
 
 // Value implements driver.Valuer so GORM persists UserPreferences as

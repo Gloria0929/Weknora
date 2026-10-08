@@ -1,11 +1,18 @@
 <template>
-  <div class="aside_box" :class="{
-    'aside_box--collapsed': uiStore.sidebarCollapsed,
-    'aside_box--resizing': uiStore.sidebarResizing,
-  }">
+  <div
+    class="aside_box"
+    :class="{
+      'aside_box--collapsed': uiStore.sidebarCollapsed,
+      'aside_box--resizing': uiStore.sidebarResizing,
+    }"
+  >
     <!-- 展开时：Logo + 搜索/折叠按钮同行 -->
     <div class="logo_row" v-if="!uiStore.sidebarCollapsed">
-      <div class="logo_box" @click="router.push('/platform/creatChat')" style="cursor: pointer">
+      <div
+        class="logo_box"
+        @click="router.push('/platform/creatChat')"
+        style="cursor: pointer"
+      >
         <span class="brand-mark" aria-hidden="true">
           <span></span><span></span><span></span>
         </span>
@@ -20,29 +27,112 @@
               <span class="cmdk-tip-keys">{{ cmdModKeyLabel }}K</span>
             </span>
           </template>
-          <div class="header-icon-btn" @click="commandPaletteStore.openPalette('')" :aria-label="t('menu.search')">
-            <img class="header-icon-img" :src="getImgSrc('search.svg')" alt="" />
+          <div
+            class="header-icon-btn"
+            @click="commandPaletteStore.openPalette('')"
+            :aria-label="t('menu.search')"
+          >
+            <img
+              class="header-icon-img"
+              :src="getImgSrc('search.svg')"
+              alt=""
+            />
           </div>
         </t-tooltip>
-        <div class="sidebar-toggle" @click="uiStore.toggleSidebar" :title="t('menu.collapseSidebar')">
-          <svg viewBox="0 0 20 20" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="1.5" y="1.5" width="17" height="17" rx="3" stroke="currentColor" stroke-width="1.2" />
-            <line x1="7.5" y1="1.5" x2="7.5" y2="18.5" stroke="currentColor" stroke-width="1.2" />
-            <line x1="4" y1="7.5" x2="4" y2="12.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+        <div
+          class="sidebar-toggle"
+          @click="uiStore.toggleSidebar"
+          :title="t('menu.collapseSidebar')"
+        >
+          <svg
+            viewBox="0 0 20 20"
+            width="18"
+            height="18"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <rect
+              x="1.5"
+              y="1.5"
+              width="17"
+              height="17"
+              rx="3"
+              stroke="currentColor"
+              stroke-width="1.2"
+            />
+            <line
+              x1="7.5"
+              y1="1.5"
+              x2="7.5"
+              y2="18.5"
+              stroke="currentColor"
+              stroke-width="1.2"
+            />
+            <line
+              x1="4"
+              y1="7.5"
+              x2="4"
+              y2="12.5"
+              stroke="currentColor"
+              stroke-width="1.2"
+              stroke-linecap="round"
+            />
           </svg>
         </div>
       </div>
     </div>
     <!-- 折叠时：展开按钮 -->
-    <t-tooltip v-if="uiStore.sidebarCollapsed" :content="t('menu.expandSidebar')" placement="right">
+    <t-tooltip
+      v-if="uiStore.sidebarCollapsed"
+      :content="t('menu.expandSidebar')"
+      placement="right"
+    >
       <div class="menu_item sidebar-toggle-item" @click="uiStore.toggleSidebar">
         <div class="menu_item-box">
           <div class="menu_icon">
-            <svg class="icon" viewBox="0 0 20 20" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="1.5" y="1.5" width="17" height="17" rx="3" stroke="currentColor" stroke-width="1.2" />
-              <line x1="7.5" y1="1.5" x2="7.5" y2="18.5" stroke="currentColor" stroke-width="1.2" />
-              <line x1="5" y1="10" x2="3" y2="8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
-              <line x1="5" y1="10" x2="3" y2="12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+            <svg
+              class="icon"
+              viewBox="0 0 20 20"
+              width="20"
+              height="20"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect
+                x="1.5"
+                y="1.5"
+                width="17"
+                height="17"
+                rx="3"
+                stroke="currentColor"
+                stroke-width="1.2"
+              />
+              <line
+                x1="7.5"
+                y1="1.5"
+                x2="7.5"
+                y2="18.5"
+                stroke="currentColor"
+                stroke-width="1.2"
+              />
+              <line
+                x1="5"
+                y1="10"
+                x2="3"
+                y2="8"
+                stroke="currentColor"
+                stroke-width="1.2"
+                stroke-linecap="round"
+              />
+              <line
+                x1="5"
+                y1="10"
+                x2="3"
+                y2="12"
+                stroke="currentColor"
+                stroke-width="1.2"
+                stroke-linecap="round"
+              />
             </svg>
           </div>
         </div>
@@ -53,9 +143,16 @@
     <TenantSelector v-if="canAccessAllTenants && !uiStore.sidebarCollapsed" />
 
     <!-- 侧栏边缘拖拽调宽，拖窄时自动收缩 -->
-    <PanelResizeHandle edge="right" :label="t('knowledgeStages.resizeDrawer')" :value="uiStore.sidebarDisplayWidth"
-      :min="SIDEBAR_COLLAPSED_WIDTH" :max="SIDEBAR_MAX_WIDTH" @start="startSidebarResize" @resize="resizeSidebar"
-      @end="uiStore.sidebarResizing = false" />
+    <PanelResizeHandle
+      edge="right"
+      :label="t('knowledgeStages.resizeDrawer')"
+      :value="uiStore.sidebarDisplayWidth"
+      :min="SIDEBAR_COLLAPSED_WIDTH"
+      :max="SIDEBAR_MAX_WIDTH"
+      @start="startSidebarResize"
+      @resize="resizeSidebar"
+      @end="uiStore.sidebarResizing = false"
+    />
 
     <!-- 上半部分：新对话吸顶 + 知识库/智能体/共享空间/历史会话随滚动一起滚走 -->
     <div class="menu_top" ref="scrollContainer" @scroll="handleScroll">
@@ -69,7 +166,10 @@
               <span class="cmdk-tip-keys">{{ cmdModKeyLabel }}K</span>
             </span>
           </template>
-          <div class="menu_item menu_item--cmdk" @click="commandPaletteStore.openPalette('')">
+          <div
+            class="menu_item menu_item--cmdk"
+            @click="commandPaletteStore.openPalette('')"
+          >
             <div class="menu_item-box">
               <div class="menu_icon">
                 <img class="icon" :src="getImgSrc('search.svg')" alt="" />
@@ -78,64 +178,100 @@
           </div>
         </t-tooltip>
       </div>
-      <div class="menu_box" :class="{
-        'menu_box--sticky': item.children && !uiStore.sidebarCollapsed,
-      }" v-for="(item, index) in topMenuItems" :key="index">
-        <t-tooltip :content="item.title" placement="right" :disabled="!uiStore.sidebarCollapsed">
-          <div @click="handleMenuClick(item.path)" @mouseenter="mouseenteMenu(item.path)"
-            @mouseleave="mouseleaveMenu(item.path)" :data-guide="`nav-${item.path}`" :class="[
+      <div
+        class="menu_box"
+        :class="{
+          'menu_box--sticky': item.children && !uiStore.sidebarCollapsed,
+        }"
+        v-for="(item, index) in topMenuItems"
+        :key="index"
+      >
+        <t-tooltip
+          :content="item.title"
+          placement="right"
+          :disabled="!uiStore.sidebarCollapsed"
+        >
+          <div
+            @click="handleMenuClick(item.path)"
+            @mouseenter="mouseenteMenu(item.path)"
+            @mouseleave="mouseleaveMenu(item.path)"
+            :data-guide="`nav-${item.path}`"
+            :class="[
               'menu_item',
               item.childrenPath && item.childrenPath == currentpath
                 ? 'menu_item_c_active'
                 : isMenuItemActive(item.path)
                   ? 'menu_item_active'
                   : '',
-            ]">
+            ]"
+          >
             <div class="menu_item-box">
               <div class="menu_icon">
-                <img class="icon" :src="getImgSrc(
-                  item.icon == 'zhishiku'
-                    ? knowledgeIcon
-                    : item.icon == 'agent'
-                      ? agentIcon
-                      : item.icon == 'artifact'
-                        ? artifactIcon
-                        : item.icon == 'programming'
-                          ? programmingIcon
-                          : item.icon == 'toolbox'
-                            ? toolboxIcon
-                            : item.icon == 'organization'
-                              ? organizationIcon
-                              : item.icon == 'logout'
-                                ? logoutIcon
-                                : item.icon == 'setting'
-                                  ? settingIcon
-                                  : prefixIcon,
-                )
-                  " alt="" />
+                <img
+                  class="icon"
+                  :src="
+                    getImgSrc(
+                      item.icon == 'zhishiku'
+                        ? knowledgeIcon
+                        : item.icon == 'agent'
+                          ? agentIcon
+                          : item.icon == 'artifact'
+                            ? artifactIcon
+                            : item.icon == 'programming'
+                              ? programmingIcon
+                              : item.icon == 'toolbox'
+                                ? toolboxIcon
+                                : item.icon == 'organization'
+                                  ? organizationIcon
+                                  : item.icon == 'logout'
+                                    ? logoutIcon
+                                    : item.icon == 'setting'
+                                      ? settingIcon
+                                      : prefixIcon,
+                    )
+                  "
+                  alt=""
+                />
               </div>
               <template v-if="!uiStore.sidebarCollapsed">
                 <span class="menu_title" :title="item.title">{{
                   item.title
-                  }}</span>
-                <span v-if="
-                  item.path === 'organizations' &&
-                  orgStore.totalPendingJoinRequestCount > 0
-                " class="menu-pending-badge" :title="t('organization.settings.pendingJoinRequestsBadge')">{{
-                  orgStore.totalPendingJoinRequestCount }}</span>
-                <span v-if="item.path === 'toolbox' && toolboxPreview.length" class="menu-toolbox-stack" :title="toolboxPreview
-                  .map((tool) =>
-                    tool.key === 'browserconnection' && browserStackStatus
-                      ? `${t(tool.title)} (${t(`localBrowser.${browserStackStatus}`)})`
-                      : t(tool.title),
-                  )
-                  .join(' · ')
-                  ">
-                  <span v-for="tool in toolboxPreview" :key="tool.key" class="menu-toolbox-stack__item">
+                }}</span>
+                <span
+                  v-if="
+                    item.path === 'organizations' &&
+                    orgStore.totalPendingJoinRequestCount > 0
+                  "
+                  class="menu-pending-badge"
+                  :title="t('organization.settings.pendingJoinRequestsBadge')"
+                  >{{ orgStore.totalPendingJoinRequestCount }}</span
+                >
+                <span
+                  v-if="item.path === 'toolbox' && toolboxPreview.length"
+                  class="menu-toolbox-stack"
+                  :title="
+                    toolboxPreview
+                      .map((tool) =>
+                        tool.key === 'browserconnection' && browserStackStatus
+                          ? `${t(tool.title)} (${t(`localBrowser.${browserStackStatus}`)})`
+                          : t(tool.title),
+                      )
+                      .join(' · ')
+                  "
+                >
+                  <span
+                    v-for="tool in toolboxPreview"
+                    :key="tool.key"
+                    class="menu-toolbox-stack__item"
+                  >
                     <template v-if="tool.key === 'browserconnection'">
                       <BrowserIcon width="12" height="12" />
-                      <i v-if="browserStackStatus" class="menu-toolbox-stack__status"
-                        :class="`is-${browserStackStatus}`" aria-hidden="true" />
+                      <i
+                        v-if="browserStackStatus"
+                        class="menu-toolbox-stack__status"
+                        :class="`is-${browserStackStatus}`"
+                        aria-hidden="true"
+                      />
                     </template>
                     <t-icon v-else :name="tool.icon" size="12px" />
                   </span>
@@ -147,72 +283,403 @@
       </div>
       <!-- 历史会话：按来源筛选后统一按日期分组展示 -->
       <div class="submenu" v-if="!uiStore.sidebarCollapsed">
-        <!-- Stable, always-mounted source filter: reserving its row here
-                     (instead of embedding it in the first date group, which
-                     appears/disappears while a bucket loads) prevents the
-                     top-right control from jumping when switching session type. -->
-        <div v-if="showSessionSourceFilter && !batchMode" class="session-list-scope-header">
-          <SessionSourceFilter inline :emphasized="sessionScopeFilterPinned" :sources="sessionSourceOptions"
-            :current="activeSessionBucketKey" @select="switchSessionBucket" />
+        <!-- Source selection, folder controls, and the conversation list share
+             one compact hierarchy, matching the folder structure below. -->
+        <div
+          v-if="
+            !batchMode && (showSessionSourceFilter || sessionFoldersEnabled)
+          "
+          class="session-folders-toolbar"
+        >
+          <button
+            v-if="sessionFoldersEnabled"
+            type="button"
+            class="session-folders-heading"
+            :aria-expanded="!projectsCollapsed"
+            @click="toggleProjectsSection"
+          >
+            <span>{{ t("menu.folderSectionTitle") }}</span>
+            <t-icon
+              :name="projectsCollapsed ? 'chevron-right' : 'chevron-down'"
+            />
+          </button>
+          <div
+            v-else
+            class="session-folders-heading session-folders-source-heading"
+          >
+            <SessionSourceFilter
+              inline
+              :emphasized="sessionScopeFilterPinned"
+              :sources="sessionSourceOptions"
+              :current="activeSessionBucketKey"
+              @select="switchSessionBucket"
+            />
+          </div>
+          <div
+            v-if="sessionFoldersEnabled"
+            class="session-folders-header-actions"
+          >
+            <SessionSourceFilter
+              v-if="showSessionSourceFilter"
+              inline
+              :emphasized="sessionScopeFilterPinned"
+              :sources="sessionSourceOptions"
+              :current="activeSessionBucketKey"
+              @select="switchSessionBucket"
+            />
+            <t-popup
+              v-model:visible="folderGroupMenuOpen"
+              trigger="click"
+              placement="bottom-right"
+              destroy-on-close
+              overlay-class-name="card-more session-action-menu-popup"
+            >
+              <button
+                type="button"
+                class="session-folder-create session-folder-toolbar-icon-button"
+                :aria-label="t('chatHeader.moreActions')"
+                :title="t('chatHeader.moreActions')"
+                aria-haspopup="menu"
+                :aria-expanded="folderGroupMenuOpen"
+              >
+                <MoreIcon
+                  class="session-folder-more-icon"
+                  size="16px"
+                  :stroke-width="2.2"
+                />
+              </button>
+              <template #content>
+                <div class="card-menu" @click.stop>
+                  <t-popup
+                    trigger="click"
+                    placement="right-top"
+                    destroy-on-close
+                    overlay-class-name="card-more card-submenu-popup"
+                  >
+                    <button
+                      type="button"
+                      class="card-menu-item"
+                      aria-haspopup="menu"
+                    >
+                      <t-icon name="arrow-up-down-2" class="icon" />
+                      <span>{{ t("menu.folderSortMode") }}</span>
+                      <t-icon
+                        name="chevron-right"
+                        class="card-menu-item__chevron"
+                      />
+                    </button>
+                    <template #content>
+                      <div class="card-menu" @click.stop>
+                        <button
+                          type="button"
+                          class="card-menu-item"
+                          @click="setFolderSortMode('recent')"
+                        >
+                          <span
+                            class="card-menu-item__check"
+                            :class="{
+                              'is-active': folderSortMode === 'recent',
+                            }"
+                          >
+                            <t-icon name="check" class="icon" />
+                          </span>
+                          <span>{{ t("menu.folderSortRecent") }}</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="card-menu-item"
+                          @click="setFolderSortMode('manual')"
+                        >
+                          <span
+                            class="card-menu-item__check"
+                            :class="{
+                              'is-active': folderSortMode === 'manual',
+                            }"
+                          >
+                            <t-icon name="check" class="icon" />
+                          </span>
+                          <span>{{ t("menu.folderSortManual") }}</span>
+                        </button>
+                      </div>
+                    </template>
+                  </t-popup>
+                </div>
+              </template>
+            </t-popup>
+            <button
+              type="button"
+              class="session-folder-create session-folder-toolbar-icon-button"
+              :aria-label="t('menu.createFolder')"
+              :title="t('menu.createFolder')"
+              @click="openFolderCreateDialog"
+            >
+              <AddIcon size="16px" :stroke-width="2.2" />
+            </button>
+          </div>
         </div>
         <template v-if="sessionListBooting && !hasAnySession">
-          <div v-for="n in 4" :key="'skel-' + n" class="submenu_item_p session-chat-row">
+          <div
+            v-for="n in 4"
+            :key="'skel-' + n"
+            class="submenu_item_p session-chat-row"
+          >
             <div class="session-list-row session-list-row--flat">
-              <t-skeleton animation="gradient" class="session-list-row__body"
-                :row-col="[{ width: '100%', height: '14px' }]" />
+              <t-skeleton
+                animation="gradient"
+                class="session-list-row__body"
+                :row-col="[{ width: '100%', height: '14px' }]"
+              />
             </div>
           </div>
         </template>
 
         <div v-else class="session-filtered-list">
-          <template v-if="
-            activeBucket?.loading &&
-            !activeBucket.loaded &&
-            filteredGroupedSessions.length === 0
-          ">
-            <div v-for="n in 4" :key="'bucket-skel-' + n" class="submenu_item_p session-chat-row">
+          <template
+            v-if="
+              activeBucket?.loading &&
+              !activeBucket.loaded &&
+              filteredGroupedSessions.length === 0
+            "
+          >
+            <div
+              v-for="n in 4"
+              :key="'bucket-skel-' + n"
+              class="submenu_item_p session-chat-row"
+            >
               <div class="session-list-row session-list-row--flat">
-                <t-skeleton animation="gradient" class="session-list-row__body"
-                  :row-col="[{ width: '100%', height: '14px' }]" />
+                <t-skeleton
+                  animation="gradient"
+                  class="session-list-row__body"
+                  :row-col="[{ width: '100%', height: '14px' }]"
+                />
               </div>
             </div>
           </template>
-          <template v-else-if="
-            activeBucket?.loaded && filteredGroupedSessions.length === 0
-          ">
+          <template
+            v-else-if="
+              activeBucket?.loaded &&
+              filteredGroupedSessions.length === 0 &&
+              (!sessionFoldersEnabled || conversationFolders.length === 0)
+            "
+          >
             <div class="submenu_empty">{{ t("menu.noSessions") }}</div>
           </template>
           <template v-else>
+            <section
+              v-if="sessionFoldersEnabled && !batchMode && !projectsCollapsed"
+              v-for="folder in folderSections"
+              :key="folder.id"
+              class="session-folder-section"
+            >
+              <div
+                class="session-folder-header"
+                :class="{
+                  'session-folder-header--expanded': !folder.collapsed,
+                }"
+              >
+                <button
+                  type="button"
+                  class="session-folder-toggle"
+                  @click="toggleFolder(folder.id)"
+                >
+                  <span class="session-folder-toggle-icon" aria-hidden="true">
+                    <t-icon
+                      name="folder"
+                      size="18px"
+                      class="session-folder-default-icon"
+                    />
+                    <t-icon
+                      :name="
+                        folder.collapsed ? 'chevron-right' : 'chevron-down'
+                      "
+                      size="18px"
+                      class="session-folder-hover-chevron"
+                    />
+                  </span>
+                  <span class="session-folder-name">{{ folder.name }}</span>
+                </button>
+                <div class="session-folder-actions">
+                  <t-popup
+                    :visible="folderMenuOpenId === folder.id"
+                    trigger="click"
+                    placement="bottom-right"
+                    destroy-on-close
+                    overlay-class-name="card-more session-action-menu-popup"
+                    @visible-change="setFolderMenuVisibility(folder.id, $event)"
+                  >
+                    <button
+                      type="button"
+                      :aria-label="t('chatHeader.moreActions')"
+                      :title="t('chatHeader.moreActions')"
+                      aria-haspopup="menu"
+                      @click.stop
+                    >
+                      <MoreIcon
+                        class="session-folder-more-icon"
+                        size="18px"
+                        :stroke-width="2.2"
+                      />
+                    </button>
+                    <template #content>
+                      <div class="card-menu" @click.stop>
+                        <button
+                          v-if="folderSortMode === 'manual'"
+                          type="button"
+                          class="card-menu-item"
+                          :disabled="!folderCanMove(folder.id, -1)"
+                          @click="moveFolderBy(folder.id, -1)"
+                        >
+                          <t-icon name="arrow-up" class="icon" />
+                          <span>{{ t("menu.moveFolderUp") }}</span>
+                        </button>
+                        <button
+                          v-if="folderSortMode === 'manual'"
+                          type="button"
+                          class="card-menu-item"
+                          :disabled="!folderCanMove(folder.id, 1)"
+                          @click="moveFolderBy(folder.id, 1)"
+                        >
+                          <t-icon name="arrow-down" class="icon" />
+                          <span>{{ t("menu.moveFolderDown") }}</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="card-menu-item"
+                          @click="startFolderBatchManage(folder.id)"
+                        >
+                          <t-icon name="queue" class="icon" />
+                          <span>{{ t("menu.batchManage") }}</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="card-menu-item"
+                          @click="renameFolderFromMenu(folder)"
+                        >
+                          <t-icon name="edit-1" class="icon" />
+                          <span>{{ t("menu.renameFolder") }}</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="card-menu-item session-folder-menu-delete"
+                          @click="confirmDeleteFolder(folder.id)"
+                        >
+                          <t-icon name="delete" class="icon" />
+                          <span>{{ t("menu.deleteFolder") }}</span>
+                        </button>
+                      </div>
+                    </template>
+                  </t-popup>
+                  <button
+                    type="button"
+                    class="session-folder-new-chat"
+                    :aria-label="t('menu.newChatInFolder')"
+                    :title="t('menu.newChatInFolder')"
+                    @click="createChatInFolder(folder.id)"
+                  >
+                    <AddIcon size="18px" :stroke-width="2.2" />
+                  </button>
+                </div>
+              </div>
+              <Transition name="session-folder-content">
+                <div v-if="!folder.collapsed" class="session-folder-content">
+                  <div class="session-folder-content__inner">
+                    <div
+                      v-for="subitem in folder.items"
+                      :key="subitem.id"
+                      class="submenu_item_p session-chat-row session-folder-chat-row"
+                      :data-session-id="subitem.id"
+                      :class="{
+                        'session-chat-row--active':
+                          !batchMode && subitem.path === currentSecondpath,
+                        'session-chat-row--selected':
+                          batchMode && batchSelectedIds.includes(subitem.id),
+                        'session-chat-row--revealed':
+                          revealedSessionId === subitem.id,
+                      }"
+                    >
+                      <div class="session-list-row session-list-row--flat">
+                        <div class="session-list-row__body">
+                          <SessionSidebarRow
+                            :item="subitem"
+                            :nested="true"
+                            :batch-mode="batchMode"
+                            :running="
+                              Boolean(sessionActivityEntries[subitem.id])
+                            "
+                            :active-path="currentSecondpath"
+                            :selected-ids="batchSelectedIds"
+                            :menu-options="buildSessionMenuOptions(subitem)"
+                            @navigate="gotopage(subitem.path)"
+                            @toggle-select="toggleBatchSelect(subitem.id)"
+                            @menu-click="
+                              handleSessionMenuClick($event, subitem)
+                            "
+                            @rename-submit="
+                              renameSessionTitle(subitem, $event.title)
+                            "
+                            @hover-in="mouseenteBotDownr(subitem.id)"
+                            @hover-out="mouseleaveBotDown"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      v-if="folder.items.length === 0"
+                      class="session-folder-empty"
+                    >
+                      {{ t("menu.emptyFolder") }}
+                    </div>
+                  </div>
+                </div>
+              </Transition>
+            </section>
             <template v-for="group in filteredGroupedSessions" :key="group.key">
-              <div v-if="group.label" class="timeline_header session-list-row session-list-row--flat">
+              <div
+                v-if="group.label"
+                class="timeline_header session-list-row session-list-row--flat"
+              >
                 <span class="session-list-row__body">
                   <span class="timeline_header-label">{{ group.label }}</span>
                 </span>
               </div>
-              <div v-for="subitem in group.items" :key="subitem.id" class="submenu_item_p session-chat-row"
-                :data-session-id="subitem.id" :class="{
+              <div
+                v-for="subitem in group.items"
+                :key="subitem.id"
+                class="submenu_item_p session-chat-row"
+                :data-session-id="subitem.id"
+                :class="{
                   'session-chat-row--active':
                     !batchMode && subitem.path === currentSecondpath,
                   'session-chat-row--selected':
                     batchMode && batchSelectedIds.includes(subitem.id),
                   'session-chat-row--revealed':
                     revealedSessionId === subitem.id,
-                }">
+                }"
+              >
                 <div class="session-list-row session-list-row--flat">
                   <div class="session-list-row__body">
-                    <SessionSidebarRow :item="subitem" :batch-mode="batchMode"
-                      :running="Boolean(sessionActivityEntries[subitem.id])" :active-path="currentSecondpath"
-                      :selected-ids="batchSelectedIds" :menu-options="buildSessionMenuOptions(subitem)"
-                      @navigate="gotopage(subitem.path)" @toggle-select="toggleBatchSelect(subitem.id)"
+                    <SessionSidebarRow
+                      :item="subitem"
+                      :batch-mode="batchMode"
+                      :running="Boolean(sessionActivityEntries[subitem.id])"
+                      :active-path="currentSecondpath"
+                      :selected-ids="batchSelectedIds"
+                      :menu-options="buildSessionMenuOptions(subitem)"
+                      @navigate="gotopage(subitem.path)"
+                      @toggle-select="toggleBatchSelect(subitem.id)"
                       @menu-click="handleSessionMenuClick($event, subitem)"
                       @rename-submit="renameSessionTitle(subitem, $event.title)"
-                      @hover-in="mouseenteBotDownr(subitem.id)" @hover-out="mouseleaveBotDown" />
+                      @hover-in="mouseenteBotDownr(subitem.id)"
+                      @hover-out="mouseleaveBotDown"
+                    />
                   </div>
                 </div>
               </div>
             </template>
-            <div v-if="activeBucket?.loading && filteredGroupedSessions.length > 0"
-              class="session-list-loading session-list-row session-list-row--flat">
+            <div
+              v-if="activeBucket?.loading && filteredGroupedSessions.length > 0"
+              class="session-list-loading session-list-row session-list-row--flat"
+            >
               <span class="session-list-row__body">
                 <t-loading size="small" />
               </span>
@@ -223,9 +690,16 @@
     </div>
 
     <!-- 批量管理底部操作条：固定在侧栏底部、用户头像上方 -->
-    <div v-if="batchMode && !uiStore.sidebarCollapsed" class="batch-inline-footer">
+    <div
+      v-if="batchMode && !uiStore.sidebarCollapsed"
+      class="batch-inline-footer"
+    >
       <div class="batch-footer-left">
-        <t-checkbox :checked="isAllBatchSelected" :indeterminate="isBatchIndeterminate" @change="toggleBatchSelectAll">
+        <t-checkbox
+          :checked="isAllBatchSelected"
+          :indeterminate="isBatchIndeterminate"
+          @change="toggleBatchSelectAll"
+        >
           {{ t("batchManage.selectAll") }}
         </t-checkbox>
       </div>
@@ -233,8 +707,14 @@
         <t-button size="small" variant="text" @click="exitBatchMode">
           {{ t("batchManage.cancel") }}
         </t-button>
-        <t-button size="small" theme="danger" variant="base" :disabled="batchSelectedIds.length === 0"
-          :loading="batchDeleting" @click="handleInlineBatchDelete">
+        <t-button
+          size="small"
+          theme="danger"
+          variant="base"
+          :disabled="batchSelectedIds.length === 0"
+          :loading="batchDeleting"
+          @click="handleInlineBatchDelete"
+        >
           {{ t("batchManage.delete")
           }}{{ batchSelectedIds.length > 0 ? `(${batchDisplayCount})` : "" }}
         </t-button>
@@ -245,6 +725,32 @@
     <div class="menu_bottom">
       <UserMenu />
     </div>
+
+    <t-dialog
+      v-model:visible="folderCreateOpen"
+      :header="folderDialogTitle"
+      :confirm-btn="{
+        content: folderDialogTitle,
+        theme: 'primary',
+      }"
+      :cancel-btn="{ content: t('common.cancel') }"
+      width="420px"
+      @confirm="saveFolderName"
+      @cancel="cancelFolderEdit"
+      @update:visible="handleFolderCreateVisibility"
+    >
+      <div class="session-folder-create-dialog-body">
+        <t-input
+          v-model="folderDraft"
+          :placeholder="t('menu.folderNamePlaceholder')"
+          :maxlength="48"
+          autofocus
+          clearable
+          @enter="saveFolderName"
+          @focus="selectFolderNameOnOpen"
+        />
+      </div>
+    </t-dialog>
   </div>
 </template>
 
@@ -307,7 +813,8 @@ import {
   findSessionBucketKey,
   shouldShowSessionSourceFilter,
 } from "./sessionSidebarSourceFilter";
-import { logout as logoutApi } from "@/api/auth";
+import { logout as logoutApi, updateMyPreferences } from "@/api/auth";
+import type { SessionFolderState } from "@/api/auth";
 import { useMenuStore } from "@/stores/menu";
 import { useSessionActivityStore } from "@/stores/sessionActivity";
 import { useAuthStore } from "@/stores/auth";
@@ -319,6 +826,7 @@ import { useOrganizationStore } from "@/stores/organization";
 import { useUIStore } from "@/stores/ui";
 import { useCommandPaletteStore } from "@/stores/commandPalette";
 import { MessagePlugin, DialogPlugin, Icon as TIcon } from "tdesign-vue-next";
+import { AddIcon, MoreIcon } from "tdesign-icons-vue-next";
 import UserMenu from "@/components/UserMenu.vue";
 import TenantSelector from "@/components/TenantSelector.vue";
 import { useI18n } from "vue-i18n";
@@ -357,6 +865,195 @@ const sessionActivity = useSessionActivityStore();
 const { entries: sessionActivityEntries } = storeToRefs(sessionActivity);
 let sessionActivityTimer: ReturnType<typeof setInterval> | undefined;
 const authStore = useAuthStore();
+type ConversationFolder = { id: string; name: string; collapsed: boolean };
+const conversationFolders = ref<ConversationFolder[]>([]);
+const sessionFolderAssignments = ref<Record<string, string>>({});
+const projectsCollapsed = ref(false);
+/**
+ * 项目排序方式：
+ * - recent：按文件夹内最新会话的更新时间倒序
+ * - manual：按 conversationFolders 的存储顺序，可用文件夹菜单的上移/下移调整
+ * 默认 manual，与引入排序方式之前的表现一致。
+ */
+const folderSortMode = ref<"recent" | "manual">("manual");
+const folderEditor = ref("");
+const folderDraft = ref("");
+const folderCreateOpen = ref(false);
+/** 通过会话菜单“新项目”打开新建弹窗时，记住待移入的会话。 */
+const pendingMoveSessionId = ref("");
+const folderGroupMenuOpen = ref(false);
+const folderMenuOpenId = ref("");
+const folderStorageKey = computed(
+  () =>
+    `weknora_session_folders:${authStore.currentUserId || "anonymous"}:${authStore.effectiveTenantId || "default"}`,
+);
+/** 当前空间在 preferences.session_folders 里的键（服务端那份跨设备副本）。 */
+const folderPrefTenantKey = computed(() =>
+  String(authStore.effectiveTenantId || "default"),
+);
+type FolderState = {
+  folders: ConversationFolder[];
+  assignments: Record<string, string>;
+  projectsCollapsed: boolean;
+  sortMode: "recent" | "manual";
+};
+const emptyFolderState = (): FolderState => ({
+  folders: [],
+  assignments: {},
+  projectsCollapsed: false,
+  sortMode: "manual",
+});
+/** 同时接受服务端（snake_case）与旧 localStorage（camelCase）两种形状。 */
+const normalizeFolderState = (saved: any): FolderState => ({
+  folders: Array.isArray(saved?.folders)
+    ? saved.folders
+        .filter(
+          (folder: any) =>
+            folder &&
+            typeof folder.id === "string" &&
+            typeof folder.name === "string",
+        )
+        .map((folder: any) => ({
+          id: folder.id,
+          name: folder.name,
+          collapsed: Boolean(folder.collapsed),
+        }))
+    : [],
+  assignments:
+    saved?.assignments && typeof saved.assignments === "object"
+      ? saved.assignments
+      : {},
+  projectsCollapsed:
+    saved?.projectsCollapsed === true || saved?.projects_collapsed === true,
+  sortMode:
+    (saved?.sortMode ?? saved?.sort_mode) === "recent" ? "recent" : "manual",
+});
+const currentFolderState = (): FolderState => ({
+  folders: conversationFolders.value,
+  assignments: sessionFolderAssignments.value,
+  projectsCollapsed: projectsCollapsed.value,
+  sortMode: folderSortMode.value,
+});
+const applyFolderState = (state: FolderState) => {
+  conversationFolders.value = state.folders;
+  sessionFolderAssignments.value = state.assignments;
+  projectsCollapsed.value = state.projectsCollapsed;
+  folderSortMode.value = state.sortMode;
+};
+const readLocalFolderState = (key: string): FolderState | null => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? normalizeFolderState(JSON.parse(raw)) : null;
+  } catch {
+    return null;
+  }
+};
+/** 写穿缓存：本地始终留一份，读取即时，接口不可用时也不至于丢掉组织。 */
+const writeLocalFolderState = () => {
+  try {
+    localStorage.setItem(
+      folderStorageKey.value,
+      JSON.stringify(currentFolderState()),
+    );
+  } catch {
+    // Folder organization remains available for this view if storage is unavailable.
+  }
+};
+const serverFolderState = (): FolderState | null => {
+  const entry =
+    authStore.user?.preferences?.session_folders?.[folderPrefTenantKey.value];
+  return entry ? normalizeFolderState(entry) : null;
+};
+const toServerFolderState = (state: FolderState): SessionFolderState => ({
+  folders: state.folders.map((folder) => ({
+    id: folder.id,
+    name: folder.name,
+    collapsed: folder.collapsed,
+  })),
+  assignments: state.assignments,
+  sort_mode: state.sortMode,
+  projects_collapsed: state.projectsCollapsed,
+});
+/**
+ * 上报当前空间的文件夹组织。每次只发这一个空间，后端按空间键合并，
+ * 所以不会覆盖同一账号在其它空间里的组织。
+ */
+const pushFolderStateToServer = async () => {
+  const user = authStore.user;
+  if (!user) return;
+  // 还没和后端对齐过就先别写：此时本地可能是「空间键还没就绪」导致的空状态，
+  // 推上去会把服务端已有的组织抹掉。
+  if (!reconciledFolderKeys.has(folderStorageKey.value)) return;
+  const res = await updateMyPreferences({
+    session_folders: {
+      [folderPrefTenantKey.value]: toServerFolderState(currentFolderState()),
+    },
+  });
+  if (res.success && res.data) {
+    // 回写 store，避免下次切空间回来时读到过期的服务端值又把新数据盖掉。
+    authStore.setUser({ ...user, preferences: res.data });
+  }
+};
+let folderSyncTimer: ReturnType<typeof setTimeout> | undefined;
+const persistConversationFolders = () => {
+  writeLocalFolderState();
+  if (folderSyncTimer) clearTimeout(folderSyncTimer);
+  folderSyncTimer = setTimeout(() => {
+    folderSyncTimer = undefined;
+    void pushFolderStateToServer();
+  }, 1000);
+};
+/** 有实际内容的布局：至少有一个文件夹，或有会话归属。类型谓词便于收窄。 */
+const hasFolderState = (state: FolderState | null): state is FolderState =>
+  !!state &&
+  (state.folders.length > 0 || Object.keys(state.assignments).length > 0);
+/**
+ * 登录 / 切换空间时对齐一次。
+ *
+ * 关键约束：空状态永远不许覆盖非空状态。此前的写法一旦某一侧变成空的
+ * （服务端被写过空记录、或本地缓存被覆盖过），就会把空当作真相应用并
+ * 写回另一侧，两边一起销毁——文件夹就此消失，且 assignments 还在时
+ * 所有会话会落回外层。所以这里按「谁非空谁为准」来决断。
+ */
+const reconciledFolderKeys = new Set<string>();
+const reconcileFolderState = () => {
+  const key = folderStorageKey.value;
+  if (reconciledFolderKeys.has(key)) return;
+  if (!authStore.user) return; // 还没登录，等 user 到位再对齐
+  reconciledFolderKeys.add(key);
+
+  const remote = serverFolderState();
+  const local = readLocalFolderState(key);
+
+  if (hasFolderState(remote)) {
+    // 服务端有内容：以它为准（换设备后这里才是真相）。
+    applyFolderState(remote);
+    writeLocalFolderState();
+    return;
+  }
+  if (hasFolderState(local)) {
+    // 服务端空而本地有：服务端那份不可信，用本地并补写上去。
+    // 这同时是升级迁移（旧版本只有 localStorage）和空记录的自愈路径。
+    applyFolderState(local);
+    void pushFolderStateToServer();
+    return;
+  }
+  // 两边都空：确实没有组织过，保持空即可。
+  applyFolderState(emptyFolderState());
+};
+// 先用本地缓存渲染，避免等接口时侧栏空白。
+watch(
+  folderStorageKey,
+  (key) => {
+    applyFolderState(readLocalFolderState(key) ?? emptyFolderState());
+  },
+  { immediate: true },
+);
+watch(
+  [folderStorageKey, () => authStore.user?.id],
+  () => reconcileFolderState(),
+  { immediate: true },
+);
 const deploymentCapabilities = useDeploymentCapabilitiesStore();
 const toolboxPreview = computed(() =>
   TOOLBOX_ITEMS.filter((item) =>
@@ -388,7 +1085,7 @@ watch(
     toolboxPreview.value.some((tool) => tool.key === "browserconnection"),
   (visible) => {
     if (visible && !browserConnection.loaded)
-      browserConnection.refresh().catch(() => { });
+      browserConnection.refresh().catch(() => {});
   },
   { immediate: true },
 );
@@ -461,6 +1158,8 @@ const isLiteEdition = ref(false);
 const batchMode = ref(false);
 const batchSelectedIds = ref<string[]>([]);
 const batchDeleting = ref(false);
+/** 非空时批量管理限定在该文件夹内：侧栏只列它的会话，全选/计数/删除都只覆盖它。 */
+const batchScopeFolderId = ref("");
 
 const allSessionIds = computed(() => {
   const chatMenu = (menuArr.value as unknown as MenuItem[]).find(
@@ -470,21 +1169,35 @@ const allSessionIds = computed(() => {
   return (chatMenu.children as any[]).map((s: any) => s.id);
 });
 
+/** 批量管理实际覆盖的会话 id，限定文件夹时只取该文件夹内的会话。 */
+const batchSessionIds = computed(() => {
+  if (!batchScopeFolderId.value) return allSessionIds.value;
+  const items = activeBucket.value?.items ?? [];
+  return items
+    .filter(
+      (item) =>
+        sessionFolderAssignments.value[item.id] === batchScopeFolderId.value,
+    )
+    .map((item) => item.id);
+});
+
 const isAllBatchSelected = computed(
   () =>
-    allSessionIds.value.length > 0 &&
-    batchSelectedIds.value.length === allSessionIds.value.length,
+    batchSessionIds.value.length > 0 &&
+    batchSelectedIds.value.length === batchSessionIds.value.length,
 );
 
 const isBatchIndeterminate = computed(
   () =>
     batchSelectedIds.value.length > 0 &&
-    batchSelectedIds.value.length < allSessionIds.value.length,
+    batchSelectedIds.value.length < batchSessionIds.value.length,
 );
 
-const batchDisplayCount = computed(() =>
-  isAllBatchSelected.value ? total.value : batchSelectedIds.value.length,
-);
+const batchDisplayCount = computed(() => {
+  if (!isAllBatchSelected.value) return batchSelectedIds.value.length;
+  // 限定文件夹时 total 是全局会话数，与“只删这些”的实际动作不符。
+  return batchScopeFolderId.value ? batchSessionIds.value.length : total.value;
+});
 
 // 是否可以访问所有空间
 const canAccessAllTenants = computed(() => authStore.canAccessAllTenants);
@@ -613,11 +1326,66 @@ const dateBucketLabels = computed<Record<DateBucketKey, string>>(() => ({
   earlier: t("time.earlier"),
 }));
 
+const sessionFoldersEnabled = computed(
+  () => activeBucket.value?.kind === "web",
+);
+const sessionHasFolder = (sessionId: string) => {
+  const folderId = sessionFolderAssignments.value[sessionId];
+  return Boolean(
+    folderId &&
+      conversationFolders.value.some((folder) => folder.id === folderId),
+  );
+};
+/** 文件夹内最新会话的时间戳，用于「最近更新」排序。 */
+const folderLatestActivity = (section: {
+  items: Array<{ updated_at?: string; created_at?: string }>;
+}): number => {
+  let latest = 0;
+  for (const item of section.items) {
+    const ts = Date.parse(item.updated_at || item.created_at || "");
+    if (!Number.isNaN(ts) && ts > latest) latest = ts;
+  }
+  return latest;
+};
+const folderSections = computed(() => {
+  const items = activeBucket.value?.items ?? [];
+  const sections = conversationFolders.value.map((folder) => ({
+    ...folder,
+    items: items
+      .filter((item) => sessionFolderAssignments.value[item.id] === folder.id)
+      .map((item) => ({
+        ...item,
+        path: sessionPath(item.id),
+        title: item.title || "",
+      })),
+  }));
+  if (folderSortMode.value === "manual") return sections;
+  // 「最近更新」：按文件夹内最新会话倒序，空文件夹没有时间戳因而排在最后。
+  return [...sections].sort(
+    (a, b) => folderLatestActivity(b) - folderLatestActivity(a),
+  );
+});
+
 const filteredGroupedSessions = computed(() => {
   const bucket = activeBucket.value;
   if (!bucket?.items.length) return [];
+  let visibleItems = bucket.items;
+  if (sessionFoldersEnabled.value) {
+    if (batchMode.value) {
+      // 限定文件夹的批量管理只列该文件夹内的会话，其余全部隐藏。
+      visibleItems = batchScopeFolderId.value
+        ? bucket.items.filter(
+            (item) =>
+              sessionFolderAssignments.value[item.id] ===
+              batchScopeFolderId.value,
+          )
+        : bucket.items;
+    } else {
+      visibleItems = bucket.items.filter((item) => !sessionHasFolder(item.id));
+    }
+  }
   return groupSessionsByDate(
-    bucket.items.map((item) => ({
+    visibleItems.map((item) => ({
       ...item,
       path: sessionPath(item.id),
       title: item.title || "",
@@ -627,14 +1395,189 @@ const filteredGroupedSessions = computed(() => {
   );
 });
 
+const persistFoldersAfterEdit = () => persistConversationFolders();
+const toggleProjectsSection = () => {
+  projectsCollapsed.value = !projectsCollapsed.value;
+  persistFoldersAfterEdit();
+};
+const prepareFolderCreate = () => {
+  folderEditor.value = "create";
+  folderDraft.value = "";
+};
+const openFolderCreateDialog = () => {
+  prepareFolderCreate();
+  folderCreateOpen.value = true;
+};
+const handleFolderCreateVisibility = (visible: boolean) => {
+  folderCreateOpen.value = visible;
+  // 新建与重命名共用同一个弹窗，关闭时都要清掉编辑状态。
+  if (!visible) cancelFolderEdit();
+};
+/** 弹窗打开时把旧名字全选，方便直接输入新名（沿用原先内联编辑的行为）。 */
+const pendingFolderNameSelect = ref(false);
+const selectFolderNameOnOpen = (
+  _value: string,
+  context: { e?: FocusEvent },
+) => {
+  if (!pendingFolderNameSelect.value) return;
+  pendingFolderNameSelect.value = false;
+  const el = context?.e?.target as HTMLInputElement | undefined;
+  el?.select();
+};
+/** 重命名复用新建文件夹的弹窗，只换标题与按钮文案。 */
+const openFolderRenameDialog = (folder: ConversationFolder) => {
+  folderEditor.value = folder.id;
+  folderDraft.value = folder.name;
+  pendingFolderNameSelect.value = true;
+  folderCreateOpen.value = true;
+};
+const folderDialogTitle = computed(() =>
+  folderEditor.value === "create"
+    ? t("menu.createFolder")
+    : t("menu.renameFolder"),
+);
+const cancelFolderEdit = () => {
+  folderEditor.value = "";
+  folderDraft.value = "";
+  folderCreateOpen.value = false;
+  pendingFolderNameSelect.value = false;
+  pendingMoveSessionId.value = "";
+};
+const saveFolderName = () => {
+  const name = folderDraft.value.trim().slice(0, 48);
+  if (!name) return;
+  const pendingSessionId = pendingMoveSessionId.value;
+  pendingMoveSessionId.value = "";
+  if (folderEditor.value === "create") {
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `folder-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    conversationFolders.value.push({ id, name, collapsed: false });
+    projectsCollapsed.value = false;
+    if (pendingSessionId) moveSessionToFolder(pendingSessionId, id);
+  } else {
+    const folder = conversationFolders.value.find(
+      (item) => item.id === folderEditor.value,
+    );
+    if (folder) folder.name = name;
+  }
+  cancelFolderEdit();
+  persistFoldersAfterEdit();
+};
+const toggleFolder = (folderId: string) => {
+  const folder = conversationFolders.value.find((item) => item.id === folderId);
+  if (!folder) return;
+  folder.collapsed = !folder.collapsed;
+  persistFoldersAfterEdit();
+};
+const startFolderBatchManage = (folderId: string) => {
+  folderMenuOpenId.value = "";
+  enterBatchMode(folderId);
+};
+const renameFolderFromMenu = (folder: ConversationFolder) => {
+  folderMenuOpenId.value = "";
+  openFolderRenameDialog(folder);
+};
+const createChatInFolder = (folderId: string) => {
+  const folder = conversationFolders.value.find((item) => item.id === folderId);
+  if (!folder) return;
+  folder.collapsed = false;
+  projectsCollapsed.value = false;
+  folderMenuOpenId.value = "";
+  persistFoldersAfterEdit();
+  router.push({
+    path: "/platform/creatChat",
+    query: { ...route.query, folderId },
+  });
+};
+const setFolderSortMode = (mode: "recent" | "manual") => {
+  folderSortMode.value = mode;
+  folderGroupMenuOpen.value = false;
+  persistFoldersAfterEdit();
+};
+/** 手动排序下方向上/向下移动一位；已在边界时不动。 */
+const folderCanMove = (folderId: string, delta: number): boolean => {
+  const list = conversationFolders.value;
+  const from = list.findIndex((folder) => folder.id === folderId);
+  const to = from + delta;
+  return from >= 0 && to >= 0 && to < list.length;
+};
+const moveFolderBy = (folderId: string, delta: number) => {
+  const list = conversationFolders.value;
+  const from = list.findIndex((folder) => folder.id === folderId);
+  const to = from + delta;
+  if (from < 0 || to < 0 || to >= list.length) return;
+  const [moved] = list.splice(from, 1);
+  list.splice(to, 0, moved);
+  folderMenuOpenId.value = "";
+  persistFoldersAfterEdit();
+};
+const deleteFolder = (folderId: string) => {
+  if (folderMenuOpenId.value === folderId) folderMenuOpenId.value = "";
+  conversationFolders.value = conversationFolders.value.filter(
+    (folder) => folder.id !== folderId,
+  );
+  for (const [sessionId, assignedFolderId] of Object.entries(
+    sessionFolderAssignments.value,
+  )) {
+    if (assignedFolderId === folderId)
+      delete sessionFolderAssignments.value[sessionId];
+  }
+  persistFoldersAfterEdit();
+};
+const confirmDeleteFolder = (folderId: string) => {
+  const folder = conversationFolders.value.find((item) => item.id === folderId);
+  if (!folder) return;
+  folderMenuOpenId.value = "";
+  const confirmDialog = DialogPlugin.confirm({
+    header: t("menu.deleteFolderConfirmTitle"),
+    body: t("menu.deleteFolderConfirmBody", { folder: folder.name }),
+    confirmBtn: {
+      content: t("menu.deleteFolder"),
+      theme: "danger" as const,
+    },
+    cancelBtn: t("common.cancel"),
+    theme: "warning",
+    onConfirm: () => {
+      deleteFolder(folderId);
+      confirmDialog.destroy();
+    },
+  });
+};
+const setFolderMenuVisibility = (folderId: string, visible: boolean) => {
+  folderMenuOpenId.value = visible ? folderId : "";
+};
+const moveSessionToFolder = (sessionId: string, folderId: string) => {
+  if (
+    folderId &&
+    conversationFolders.value.some((folder) => folder.id === folderId)
+  ) {
+    sessionFolderAssignments.value[sessionId] = folderId;
+  } else {
+    delete sessionFolderAssignments.value[sessionId];
+  }
+  persistFoldersAfterEdit();
+};
+
 // Only a locally created fork requests attention; loading history and switching
 // between existing sessions must not replay the entrance animation.
 const pendingForkRevealId = ref("");
 const revealedSessionId = ref("");
 let forkRevealTimer: ReturnType<typeof setTimeout> | undefined;
 usemenuStore.$onAction(({ name, args, after }) => {
-  if (name !== "updataMenuChildren" || !args[0]?.parent_session_id) return;
-  const sessionId = String(args[0].id);
+  if (name !== "updataMenuChildren" || !args[0]) return;
+  const session = args[0];
+  const sessionId = String(session.id);
+  const targetFolderId =
+    typeof route.query.folderId === "string" ? route.query.folderId : "";
+  if (
+    targetFolderId &&
+    conversationFolders.value.some((folder) => folder.id === targetFolderId)
+  ) {
+    after(() => moveSessionToFolder(sessionId, targetFolderId));
+  }
+  if (!session.parent_session_id) return;
   after(() => {
     pendingForkRevealId.value = sessionId;
   });
@@ -714,13 +1657,15 @@ const mouseleaveBotDown = () => {
   activeSubmenu.value = "";
 };
 
-const enterBatchMode = () => {
+const enterBatchMode = (folderId = "") => {
   batchMode.value = true;
+  batchScopeFolderId.value = folderId;
   batchSelectedIds.value = [];
 };
 
 const exitBatchMode = () => {
   batchMode.value = false;
+  batchScopeFolderId.value = "";
   batchSelectedIds.value = [];
 };
 
@@ -734,18 +1679,20 @@ const toggleBatchSelect = (id: string) => {
 };
 
 const toggleBatchSelectAll = (checked: boolean) => {
-  batchSelectedIds.value = checked ? [...allSessionIds.value] : [];
+  batchSelectedIds.value = checked ? [...batchSessionIds.value] : [];
 };
 
 const handleInlineBatchDelete = () => {
   if (batchSelectedIds.value.length === 0) return;
-  const isDeleteAll = isAllBatchSelected.value;
+  // 限定文件夹时绝不可走 deleteAllSessions（那是清空整个会话列表），
+  // 全选也只应删除该文件夹内的会话。
+  const isDeleteAll = isAllBatchSelected.value && !batchScopeFolderId.value;
   const displayCount = batchDisplayCount.value;
   const confirmDialog = DialogPlugin.confirm({
     header: t("batchManage.deleteConfirmTitle"),
     body: isDeleteAll
       ? t("batchManage.deleteAllConfirmBody") ||
-      t("batchManage.deleteConfirmBody", { count: displayCount })
+        t("batchManage.deleteConfirmBody", { count: displayCount })
       : t("batchManage.deleteConfirmBody", { count: displayCount }),
     confirmBtn: { content: t("batchManage.delete"), theme: "danger" as const },
     cancelBtn: t("batchManage.cancel"),
@@ -795,7 +1742,14 @@ const handleInlineBatchDelete = () => {
 };
 
 const handleSessionMenuClick = (data: { value: string }, item: any) => {
-  if (data?.value === "delete") {
+  if (data?.value === "removeFromFolder") {
+    moveSessionToFolder(item.id, "");
+  } else if (data?.value?.startsWith("moveToFolder:")) {
+    moveSessionToFolder(item.id, data.value.slice("moveToFolder:".length));
+  } else if (data?.value === "newFolderAndMove") {
+    pendingMoveSessionId.value = item.id;
+    openFolderCreateDialog();
+  } else if (data?.value === "delete") {
     delCard(item);
   } else if (data?.value === "clearMessages") {
     clearMessages(item);
@@ -834,11 +1788,16 @@ const buildSessionMenuOptions = (item: any) => {
       value: "clearMessages",
       prefixIcon: () => h(TIcon, { name: "clear" }),
     },
-    {
-      content: t("menu.batchManage"),
-      value: "batchManage",
-      prefixIcon: () => h(TIcon, { name: "queue" }),
-    },
+    // 文件夹内的会话改由文件夹「更多」菜单统一批量管理，作用域限定该文件夹。
+    ...(sessionHasFolder(item.id)
+      ? []
+      : [
+          {
+            content: t("menu.batchManage"),
+            value: "batchManage",
+            prefixIcon: () => h(TIcon, { name: "queue" }),
+          },
+        ]),
     {
       content: t("upload.deleteRecord"),
       value: "delete",
@@ -846,6 +1805,46 @@ const buildSessionMenuOptions = (item: any) => {
       prefixIcon: () => h(TIcon, { name: "delete" }),
     },
   );
+  if (sessionFoldersEnabled.value && conversationFolders.value.length > 0) {
+    options.splice(
+      options.length - 1,
+      0,
+      ...[
+        ...(sessionHasFolder(item.id)
+          ? [
+              {
+                content: t("menu.removeFromFolder"),
+                value: "removeFromFolder",
+                prefixIcon: () => h(TIcon, { name: "folder-open" }),
+              },
+            ]
+          : []),
+        {
+          content: t("menu.moveToProject"),
+          value: "moveToProject",
+          prefixIcon: () => h(TIcon, { name: "folder-move" }),
+          children: [
+            {
+              content: t("menu.newProject"),
+              value: "newFolderAndMove",
+              prefixIcon: () => h(TIcon, { name: "folder-add" }),
+            },
+            ...conversationFolders.value
+              .filter(
+                (folder) =>
+                  sessionFolderAssignments.value[item.id] !== folder.id,
+              )
+              .map((folder, index) => ({
+                content: folder.name,
+                value: `moveToFolder:${folder.id}`,
+                prefixIcon: () => h(TIcon, { name: "folder" }),
+                ...(index === 0 ? { dividerBefore: true } : {}),
+              })),
+          ],
+        },
+      ],
+    );
+  }
   return options;
 };
 
@@ -1016,12 +2015,7 @@ const probeChannelBucketCounts = async (keys: string[], token: number) => {
       const bucket = sessionBuckets.value[key];
       if (!bucket) return;
       try {
-        const res: any = await getSessionsList(
-          1,
-          1,
-          bucket.apiSource,
-          "chat",
-        );
+        const res: any = await getSessionsList(1, 1, bucket.apiSource, "chat");
         if (token !== bucketRequestToken) return;
         sessionBuckets.value = {
           ...sessionBuckets.value,
@@ -1277,7 +2271,7 @@ onMounted(async () => {
         authStore.setLiteMode(true);
       }
     })
-    .catch(() => { });
+    .catch(() => {});
 
   await loadCurrentKbInfo((route.params as any)?.kbId as string);
 
@@ -1445,8 +2439,8 @@ const getImgSrc = (url: string) => {
   return new URL(`/src/assets/img/${url}`, import.meta.url).href;
 };
 
-const mouseenteMenu = (path: string) => { };
-const mouseleaveMenu = (path: string) => { };
+const mouseenteMenu = (path: string) => {};
+const mouseleaveMenu = (path: string) => {};
 
 let sidebarResizeStartWidth = 0;
 const startSidebarResize = () => {
@@ -1474,7 +2468,9 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
   --sidebar-icon-size: 18px;
   --sidebar-channel-icon: 14px;
   --sidebar-icon-gap: 8px;
-  --sidebar-text-inset: calc(var(--sidebar-inset-x) + var(--sidebar-icon-size) + var(--sidebar-icon-gap)); // 40px
+  --sidebar-text-inset: calc(
+    var(--sidebar-inset-x) + var(--sidebar-icon-size) + var(--sidebar-icon-gap)
+  ); // 40px
 
   min-width: 0;
   width: var(--sidebar-width, 260px);
@@ -1491,7 +2487,8 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--td-component-stroke);
-  box-shadow: 1px 0 0 color-mix(in srgb, var(--td-text-color-primary) 2%, transparent);
+  box-shadow: 1px 0 0
+    color-mix(in srgb, var(--td-text-color-primary) 2%, transparent);
   transition:
     width var(--app-motion-base) ease,
     min-width 0.25s ease;
@@ -1715,7 +2712,6 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
   }
 
   .menu_item_c_active {
-
     .menu_icon,
     .menu_title {
       color: var(--td-text-color-primary);
@@ -1871,33 +2867,312 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
     white-space: nowrap;
   }
 
-  // Stable filter control: always mounted and absolutely pinned to the list's
-  // top-right so it visually sits on the first row (e.g. beside "近30天") and
-  // never jumps when switching session type reloads a bucket. It overlays the
-  // empty right side of the first header row, so it needs no reserved height.
-  .session-list-scope-header {
-    position: absolute;
-    top: 4px;
-    right: 10px;
-    z-index: 2;
+  .session-folders-toolbar {
+    min-height: 36px;
+    margin: 4px;
+    padding: 0 6px 0 10px;
     display: flex;
-    justify-content: flex-end;
-    max-width: calc(100% - var(--sidebar-inset-x) - 10px);
+    align-items: center;
+    gap: 6px;
+    box-sizing: border-box;
+    border-radius: var(--app-radius-md);
+    background: transparent;
 
-    :deep(.session-source-filter--inline) {
-      flex: 0 1 auto;
-      min-width: 0;
-      max-width: 100%;
-      opacity: 0;
-      transition: opacity var(--app-motion-fast) ease;
+    &:hover {
+      background: var(--td-bg-color-container-hover);
     }
   }
 
-  .submenu:hover .session-list-scope-header :deep(.session-source-filter--inline),
-  .session-list-scope-header:hover :deep(.session-source-filter--inline),
-  .session-list-scope-header:focus-within :deep(.session-source-filter--inline),
-  .session-list-scope-header :deep(.session-source-filter--inline.session-source-filter--emphasized) {
+  .session-folders-heading {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--td-text-color-primary);
+    font-size: var(--app-text-base);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  button.session-folders-heading {
+    justify-content: flex-start;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-family: var(--app-font-family);
+    text-align: left;
+    cursor: pointer;
+    color: #737373;
+    font-size: 13px;
+
+    &:focus-visible {
+      outline: none;
+    }
+  }
+
+  .session-folders-heading :deep(.session-source-filter--inline) {
+    max-width: 100%;
+  }
+
+  .session-folders-header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    flex: 0 0 auto;
+  }
+
+  .session-folders-header-actions :deep(.session-source-filter__trigger) {
+    min-height: 28px;
+    padding: 0 4px;
+    color: var(--td-text-color-secondary);
+  }
+
+  .session-folders-header-actions :deep(.session-source-filter__label) {
+    max-width: 72px;
+    font-size: var(--app-text-2xs);
+  }
+
+  .session-folders-header-actions :deep(.t-icon),
+  .session-folder-actions :deep(.t-icon) {
+    font-size: 17px;
+    font-weight: 700;
+    filter: drop-shadow(0 0 0.3px currentColor);
+  }
+
+  .session-folders-header-actions :deep(svg),
+  .session-folder-actions :deep(svg) {
+    stroke-width: 2.25px;
+  }
+
+  .session-folder-more-icon {
+    transform: rotate(90deg);
+  }
+
+  .session-folder-create,
+  .session-folder-actions,
+  .session-folder-toggle {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .session-folder-create {
+    width: 26px;
+    height: 26px;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--td-text-color-secondary);
+    border-radius: var(--app-radius-xs);
+    cursor: pointer;
+    transition:
+      background var(--app-motion-fast) ease,
+      color var(--app-motion-fast) ease;
+
+    &:hover {
+      background: var(--td-bg-color-container-hover);
+      color: var(--td-text-color-primary);
+    }
+    &:active {
+      transform: scale(0.96);
+    }
+    &:focus-visible {
+      outline: 2px solid var(--td-brand-color);
+      outline-offset: 1px;
+    }
+    &:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+  }
+
+  .session-folder-toolbar-icon-button {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--app-motion-fast) ease;
+  }
+
+  .session-folders-toolbar:hover .session-folder-toolbar-icon-button,
+  .session-folders-toolbar .session-folder-toolbar-icon-button:focus-visible {
     opacity: 1;
+    pointer-events: auto;
+  }
+
+  @media (hover: none) {
+    .session-folder-toolbar-icon-button {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+
+  .session-folder-section {
+    min-width: 0;
+    margin-bottom: 2px;
+  }
+
+  .session-folder-content {
+    display: grid;
+    grid-template-rows: 1fr;
+    overflow: hidden;
+    opacity: 1;
+    margin-top: 1px;
+  }
+
+  .session-folder-content__inner {
+    min-height: 0;
+    overflow: hidden;
+    transform: translateY(0);
+  }
+
+  .session-folder-content-enter-active,
+  .session-folder-content-leave-active {
+    display: grid;
+    overflow: hidden;
+    transition:
+      grid-template-rows 220ms cubic-bezier(0.2, 0, 0, 1),
+      opacity 160ms ease;
+  }
+
+  .session-folder-content-enter-from,
+  .session-folder-content-leave-to {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+
+  .session-folder-content-enter-to,
+  .session-folder-content-leave-from {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+
+  .session-folder-content-enter-active .session-folder-content__inner,
+  .session-folder-content-leave-active .session-folder-content__inner {
+    transition: transform 180ms ease;
+  }
+
+  .session-folder-content-enter-from .session-folder-content__inner,
+  .session-folder-content-leave-to .session-folder-content__inner {
+    transform: translateY(-4px);
+  }
+
+  .session-folder-header {
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    margin: 0 4px;
+    padding: 0 8px 0 10px;
+    gap: 6px;
+    color: var(--td-text-color-secondary);
+    border-radius: var(--app-radius-sm);
+    background: var(--td-bg-color-secondarycontainer);
+    transition: background var(--app-motion-fast) ease;
+
+    &:hover {
+      background: var(--td-bg-color-secondarycontainer-hover);
+    }
+  }
+
+  .session-folder-toggle {
+    min-width: 0;
+    flex: 1 1 auto;
+    gap: 9px;
+    padding: 5px 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--app-text-base);
+
+    &:focus-visible {
+      outline: 2px solid var(--td-brand-color);
+      outline-offset: 2px;
+    }
+  }
+
+  .session-folder-toggle-icon {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    display: grid;
+    place-items: center;
+  }
+
+  .session-folder-toggle-icon :deep(.session-folder-default-icon),
+  .session-folder-toggle-icon :deep(.session-folder-hover-chevron) {
+    grid-area: 1 / 1;
+    transition: opacity var(--app-motion-fast) ease;
+  }
+
+  .session-folder-toggle-icon :deep(.session-folder-hover-chevron) {
+    opacity: 0;
+  }
+
+  .session-folder-header:hover
+    .session-folder-toggle-icon
+    :deep(.session-folder-default-icon) {
+    opacity: 0;
+  }
+
+  .session-folder-header:hover
+    .session-folder-toggle-icon
+    :deep(.session-folder-hover-chevron) {
+    opacity: 1;
+  }
+
+  .session-folder-name {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--td-text-color-primary);
+    font-size: var(--app-text-base);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  .session-folder-actions {
+    gap: 2px;
+    opacity: 0;
+    transition: opacity var(--app-motion-fast) ease;
+    flex: 0 0 auto;
+  }
+  .session-folder-header:hover .session-folder-actions,
+  .session-folder-header:has(:focus-visible) .session-folder-actions {
+    opacity: 1;
+  }
+
+  .session-folder-actions button {
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: var(--app-radius-xs);
+    background: transparent;
+    color: var(--td-text-color-secondary);
+    cursor: pointer;
+  }
+
+  .session-folder-actions button:hover {
+    background: var(--td-bg-color-container-hover);
+    color: var(--td-text-color-primary);
+  }
+
+  .session-folder-empty {
+    padding: 12px calc(var(--sidebar-inset-x) + 25px);
+    color: var(--td-text-color-placeholder);
+    font-size: var(--app-text-sm);
+  }
+
+  .session-folder-create-dialog-body {
+    padding-top: 6px;
+  }
+
+  .session-folder-create-dialog-body :deep(.t-input) {
+    width: 100%;
   }
 
   .submenu_item_p {
@@ -1915,6 +3190,21 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
         color var(--app-motion-fast) ease;
     }
 
+    &.session-folder-chat-row .session-list-row {
+      min-height: 34px;
+      margin: 0 4px;
+      padding-left: 0;
+      /* 右内边距交给内层 .submenu_item 的 8px，使「…」与文件夹标题栏右边线对齐。 */
+      padding-right: 0;
+      border-radius: var(--app-radius-sm);
+    }
+
+    &.session-folder-chat-row :deep(.submenu_item) {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 7px 8px 7px 36px;
+    }
+
     &.session-chat-row--revealed {
       animation: session-fork-enter 280ms ease-out both;
     }
@@ -1928,7 +3218,7 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
     }
 
     &.session-chat-row--active .session-list-row {
-      background: var(--td-bg-color-container-hover);
+      background: transparent;
 
       :deep(.submenu_item) {
         color: var(--td-text-color-primary);
@@ -1937,6 +3227,10 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
       :deep(.menu-more) {
         color: var(--td-text-color-primary);
       }
+    }
+
+    &.session-chat-row--active:hover .session-list-row {
+      background: var(--td-bg-color-container-hover);
     }
 
     &.session-chat-row--selected .session-list-row {
@@ -2131,7 +3425,7 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
     box-shadow var(--app-motion-base) ease;
   transition-delay: var(--stack-delay, var(--app-motion-base));
 
-  &+& {
+  & + & {
     margin-left: -6px;
   }
 
@@ -2181,10 +3475,11 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
   color: var(--td-text-color-primary);
   rotate: 0deg;
   translate: 0 -1px;
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--td-text-color-primary) 8%, transparent);
+  box-shadow: 0 2px 6px
+    color-mix(in srgb, var(--td-text-color-primary) 8%, transparent);
 }
 
-.menu_item:hover .menu-toolbox-stack__item+.menu-toolbox-stack__item {
+.menu_item:hover .menu-toolbox-stack__item + .menu-toolbox-stack__item {
   margin-left: 3px;
 }
 
@@ -2230,10 +3525,40 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
   .aside_box .submenu_item_p.session-chat-row--revealed {
     animation: none;
   }
+
+  .session-folder-content-enter-active,
+  .session-folder-content-leave-active,
+  .session-folder-content-enter-active .session-folder-content__inner,
+  .session-folder-content-leave-active .session-folder-content__inner {
+    transition: none;
+  }
 }
 </style>
 <style lang="less">
 // Dark mode: 滚动条在深色背景下需要更亮的颜色才看得见
+.card-more .card-menu-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.card-more .card-menu-item.session-folder-menu-delete {
+  margin-top: 0;
+  color: var(--td-error-color-6);
+}
+
+.card-more .card-menu-item.session-folder-menu-delete .icon {
+  color: var(--td-error-color-6);
+}
+
+.card-more .card-menu-item.session-folder-menu-delete:hover {
+  background: var(--td-error-color-1);
+  color: var(--td-error-color-6);
+}
+
+.card-more .card-menu-item.session-folder-menu-delete:hover .icon {
+  color: var(--td-error-color-6);
+}
+
 html[theme-mode="dark"] .aside_box .menu_top:hover {
   scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
 }
@@ -2255,7 +3580,6 @@ html[theme-mode="dark"] .aside_box .header-icon-img {
 html[theme-mode="dark"] .aside_box .header-icon-btn:hover .header-icon-img {
   opacity: 0.9;
 }
-
 
 // 下拉菜单样式已统一至 @/assets/dropdown-menu.less
 

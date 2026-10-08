@@ -691,6 +691,12 @@ type updateMyPreferencesRequest struct {
 	// login, not here. Nil = field omitted from the PATCH and stays
 	// untouched.
 	LastActiveTenantID *uint64 `json:"last_active_tenant_id"`
+	// SessionFolders carries the sidebar "项目" folder layout of the active
+	// workspace so it survives a device switch. The SPA sends exactly one
+	// workspace key per request; the service merges per key, so a request
+	// never clobbers the workspaces it did not mention. Nil = field omitted
+	// from the PATCH and the stored layout stays untouched.
+	SessionFolders *types.SessionFolders `json:"session_folders"`
 }
 
 // UpdateMyPreferences godoc
@@ -726,6 +732,7 @@ func (h *AuthHandler) UpdateMyPreferences(c *gin.Context) {
 	patch := types.UserPreferences{
 		LastActiveTenantID:        req.LastActiveTenantID,
 		BrowserSearchInstructions: req.BrowserSearchInstructions,
+		SessionFolders:            req.SessionFolders,
 	}
 	prefs, err := h.userService.UpdateUserPreferences(ctx, user.ID, patch)
 	if err != nil {

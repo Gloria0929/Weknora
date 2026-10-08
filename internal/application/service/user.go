@@ -653,6 +653,33 @@ func (s *userService) UpdateUserPreferences(
 			merged.LastActiveTenantID = &v
 		}
 	}
+	if patch.SessionFolders != nil {
+		encoded, err := json.Marshal(*patch.SessionFolders)
+		if err != nil {
+			return types.UserPreferences{}, fmt.Errorf(
+				"session folders could not be encoded: %w", err,
+			)
+		}
+		if len(encoded) > types.MaxSessionFoldersBytes {
+			return types.UserPreferences{}, fmt.Errorf(
+				"session folders must not exceed %d bytes",
+				types.MaxSessionFoldersBytes,
+			)
+		}
+		// Merge per workspace, not wholesale: the SPA only ever reports the
+		// workspace it is currently showing, so replacing the map would drop
+		// every other workspace's folder layout.
+		mergedFolders := types.SessionFolders{}
+		if merged.SessionFolders != nil {
+			for tenantID, state := range *merged.SessionFolders {
+				mergedFolders[tenantID] = state
+			}
+		}
+		for tenantID, state := range *patch.SessionFolders {
+			mergedFolders[tenantID] = state
+		}
+		merged.SessionFolders = &mergedFolders
+	}
 
 	user.Preferences = merged
 	user.UpdatedAt = time.Now()

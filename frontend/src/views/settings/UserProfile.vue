@@ -398,6 +398,7 @@ onMounted(loadInfo)
 
 .password-popup-inner {
   max-width: 100%;
+  padding: 16px;
 }
 
 .password-popup-title {

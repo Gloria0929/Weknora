@@ -102,7 +102,29 @@ export interface UserPreferences {
   last_active_tenant_id?: number | null
   // oidc_only_login 为 true 表示账号由 OIDC 自动开通且用户尚未设置已知密码。
   oidc_only_login?: boolean
+  // session_folders 保存侧栏「项目」的文件夹组织，按空间 id 分区。存在服务端
+  // 而不是 localStorage，换设备登录才能恢复。字段名与后端 JSON tag 一致。
+  session_folders?: SessionFoldersPreference | null
 }
+
+/** 侧栏「项目」里的一个文件夹。 */
+export interface SessionFolderEntry {
+  id: string
+  name: string
+  collapsed?: boolean
+}
+
+/** 单个空间下的文件夹组织。 */
+export interface SessionFolderState {
+  folders: SessionFolderEntry[]
+  /** session id → folder id；缺席表示未归档。 */
+  assignments?: Record<string, string>
+  sort_mode?: 'recent' | 'manual'
+  projects_collapsed?: boolean
+}
+
+/** 空间 id（字符串）→ 该空间的文件夹组织。 */
+export type SessionFoldersPreference = Record<string, SessionFolderState>
 
 // 用户信息接口
 export interface UserInfo {

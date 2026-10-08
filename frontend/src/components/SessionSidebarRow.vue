@@ -4,6 +4,7 @@
     !batchMode && activePath === item.path ? 'submenu_item_active' : '',
     batchMode && selectedIds.includes(item.id) ? 'submenu_item_selected' : '',
     batchMode ? 'submenu_item_batch' : '',
+    nested ? 'submenu_item--foldered' : '',
     menuOpen ? 'submenu_item--menu-open' : '',
   ]" @mouseenter="emit('hover-in')" @mouseleave="emit('hover-out')"
     @click="batchMode ? emit('toggle-select') : emit('navigate')">
@@ -22,7 +23,10 @@
     <span v-if="running" class="session-running-indicator" role="status" :aria-label="t('menu.sessionInProgress')"
       :title="t('menu.sessionInProgress')"><span class="session-running-indicator__spinner" aria-hidden="true" /></span>
     <div v-if="!batchMode || item.parent_session_id" class="session-row-menu-wrap"
-      :class="{ 'session-row-menu-wrap--fork': item.parent_session_id }" @click.stop>
+      :class="{
+        'session-row-menu-wrap--fork': item.parent_session_id,
+        'session-row-menu-wrap--foldered': nested && !batchMode,
+      }" @click.stop>
       <span v-if="item.parent_session_id" class="session-fork-indicator" role="img" aria-label="由其他会话分叉而来">
         <t-icon name="git-branch" class="submenu_fork_icon" />
       </span>
@@ -36,7 +40,27 @@
             <template v-if="menuMode === 'menu'">
               <template v-for="(option, index) in menuOptions" :key="option.value">
                 <div v-if="shouldShowDividerBefore(option.value, index)" class="session-action-menu__divider" />
-                <button type="button" class="card-menu-item"
+                <t-popup v-if="option.children?.length" trigger="click" placement="right-top" destroy-on-close
+                  overlay-class-name="card-more card-submenu-popup">
+                  <button type="button" class="card-menu-item" aria-haspopup="menu">
+                    <component :is="option.prefixIcon" v-if="option.prefixIcon" class="icon" />
+                    <span>{{ option.content }}</span>
+                    <t-icon name="chevron-right" class="card-menu-item__chevron" />
+                  </button>
+                  <template #content>
+                    <div class="card-menu" @click.stop>
+                      <template v-for="child in option.children" :key="child.value">
+                        <div v-if="child.dividerBefore" class="session-action-menu__divider" />
+                        <button type="button" class="card-menu-item"
+                          :class="{ danger: child.theme === 'error' }" @click="handleMenuClick(child)">
+                          <component :is="child.prefixIcon" v-if="child.prefixIcon" class="icon" />
+                          <span>{{ child.content }}</span>
+                        </button>
+                      </template>
+                    </div>
+                  </template>
+                </t-popup>
+                <button v-else type="button" class="card-menu-item"
                   :class="{ danger: option.theme === 'error' }" @click="handleMenuClick(option)">
                   <component :is="option.prefixIcon" v-if="option.prefixIcon" class="icon" />
                   <span>{{ option.content }}</span>
@@ -78,6 +102,10 @@ interface SessionMenuOption {
   value: string
   theme?: 'default' | 'success' | 'warning' | 'error' | 'primary'
   prefixIcon?: any
+  /** 有值时该项渲染为带右侧飞出子菜单的父项，点击父项本身不触发动作。 */
+  children?: SessionMenuOption[]
+  /** 在其上方渲染一条分隔线，用于把子菜单里的固定项与列表项分开。 */
+  dividerBefore?: boolean
 }
 
 type MenuMode = 'menu' | 'clear' | 'delete'
@@ -89,7 +117,7 @@ const props = defineProps<{
   selectedIds: string[]
   menuOptions: SessionMenuOption[]
   running?: boolean
-  /** 渠道文件夹下的会话（样式与聊天区会话共用文案列对齐） */
+  /** Session appears inside a user-created folder. */
   nested?: boolean
 }>()
 
@@ -274,7 +302,7 @@ const confirmDangerAction = (): void => {
 }
 
 .submenu_item:hover,
-.submenu_item:focus-within,
+.submenu_item:has(:focus-visible),
 .submenu_item--menu-open {
   .session-row-menu-wrap {
     flex-basis: 24px;
@@ -285,10 +313,15 @@ const confirmDangerAction = (): void => {
 }
 
 .submenu_item:not(.submenu_item_batch) {
-  &:hover, &:focus-within, &.submenu_item--menu-open {
+  &:hover, &:has(:focus-visible), &.submenu_item--menu-open {
     .session-fork-indicator { opacity: 0; }
     .session-row-menu-wrap--fork .menu-more-wrap { opacity: 1; }
   }
+}
+
+.session-row-menu-wrap--foldered {
+  display: inline-flex;
+  align-items: center;
 }
 
 @media (hover: none) {

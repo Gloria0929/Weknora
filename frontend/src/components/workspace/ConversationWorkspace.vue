@@ -93,7 +93,7 @@
           />
         </aside>
         <div class="workspace-main">
-          <div v-if="file || fileChanges.length" class="file-toolbar">
+          <div v-if="file || visibleFileChanges.length" class="file-toolbar">
             <span class="file-toolbar__path" :title="file?.path">{{
               showFileDiff ? t("workspace.diff") : file?.path
             }}</span>
@@ -111,7 +111,7 @@
                 {{ t("workspace.source") }}
               </button>
               <button
-                v-if="fileChanges.length"
+                v-if="visibleFileChanges.length"
                 type="button"
                 :aria-pressed="fileView === 'diff'"
                 @click="fileView = 'diff'"
@@ -171,7 +171,7 @@
             :aria-label="t('workspace.diff')"
           >
             <WorkspaceFileDiff
-              v-for="change in fileChanges"
+              v-for="change in visibleFileChanges"
               :key="`${sessionId}:${change.path}`"
               :change="change"
               @open-source="
@@ -291,11 +291,14 @@
     <WorkspaceTestResults
       v-else
       :key="sessionId"
-      :session-id="sessionId"
-      :runs="testRuns"
+      :test-cases="testCases"
+      :discovery-loading="testDiscoveryLoading"
+      :discovery-error="testDiscoveryError"
+      :test-case-states="testCaseStates"
       :running="running"
       :error="runError"
       @ask="emit('ask', $event)"
+      @run-case="runTestCase"
     />
   </section>
 </template>
@@ -325,6 +328,12 @@ import {
   canPreviewSource,
 } from "@/utils/workspacePreview";
 import { useFileChanges } from "@/composables/useFileChanges";
+import {
+  isWorkspaceTestFile,
+  parseWorkspaceTestCases,
+  shouldScanWorkspaceDirectory,
+  type WorkspaceTestCase,
+} from "@/utils/workspaceTestCases";
 import type {
   WorkspaceTab,
   WorkspaceCommandRun,
@@ -357,11 +366,12 @@ const props = withDefaults(
 );
 const emit = defineEmits<{ ask: [prompt: string] }>();
 const { t } = useI18n();
-const api: WorkspaceGateway = props.gateway || {
+const api: WorkspaceGateway = {
   tree: async (session, path) => (await getProgrammingTree(session, path)).data,
   file: async (session, path) => (await getProgrammingFile(session, path)).data,
   run: async (session, command) =>
     (await runProgrammingCommand(session, { command, timeout: 60 })).data,
+  ...props.gateway,
 };
 // Remote sandboxes stage attachments in /workspace/input and artifacts in
 // /workspace/output next to the project. The code tree follows Manus and only
@@ -445,6 +455,8 @@ watch(imageSource, () => {
   imageError.value = false;
 });
 const { changes: fileChanges, activeId: activeFileChange } = useFileChanges();
+const gitLinked = ref(false);
+const visibleFileChanges = computed(() => gitLinked.value ? fileChanges.value : []);
 const canPreviewFile = computed(() =>
   Boolean(file.value && canPreviewSource(file.value.path)),
 );
@@ -473,12 +485,12 @@ const showFileDiff = computed(
   () =>
     props.tab === "source" &&
     fileView.value === "diff" &&
-    fileChanges.value.length > 0,
+    visibleFileChanges.value.length > 0,
 );
 const showViewSwitch = computed(
   () =>
     props.tab === "source" &&
-    (canPreviewFile.value || fileChanges.value.length > 0),
+    (canPreviewFile.value || visibleFileChanges.value.length > 0),
 );
 const showFilePreview = computed(
   () =>
@@ -492,24 +504,17 @@ const command = ref(""),
 const runs = ref<
   Array<{ id: number; command: string; result: ProgrammingCommandResult }>
 >([]);
-const testRuns = computed<WorkspaceCommandRun[]>(() => [
-  ...runs.value.map((run) => ({
-    id: `manual:${run.id}`,
-    command: run.command,
-    output: [run.result.stdout, run.result.stderr].filter(Boolean).join("\n"),
-    status: (run.result.killed || run.result.exit_code !== 0
-      ? "failed"
-      : "passed") as WorkspaceCommandRun["status"],
-    durationMs: run.result.duration_ms,
-    exitCode: run.result.exit_code,
-  })),
-  ...props.agentRuns,
-]);
+const testCases = ref<WorkspaceTestCase[]>([]);
+const testDiscoveryLoading = ref(false);
+const testDiscoveryError = ref("");
+type WorkspaceTestCaseState = { status: "running" | "passed" | "failed"; command?: string; output: string; durationMs?: number };
+const testCaseStates = ref<Record<string, WorkspaceTestCaseState>>({});
 let generation = 0,
   fileRequest = 0,
   previewRequest = 0,
   refreshRequest = 0,
   runId = 0;
+let discoveryGeneration = 0;
 const treeRequests = new Map<string, number>();
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 const busy = computed(() => pendingPaths.value.length > 0);
@@ -579,6 +584,7 @@ async function loadDirectory(path = "") {
     const data = await api.tree(props.sessionId, path);
     if (epoch !== generation || treeRequests.get(path) !== request) return;
     childrenByPath.value = { ...childrenByPath.value, [path]: data.nodes };
+    if (!path) gitLinked.value = data.nodes.some((node) => node.name === ".git");
     if (data.origin) workspaceOrigin.value = data.origin;
     workspaceState.value =
       data.workspace_state === "expired" ? "expired" : "live";
@@ -844,11 +850,12 @@ async function refreshInternal(preferFocus: boolean) {
 // on whatever was open when the turn started.
 let lastFollowedChange = "";
 watch(
-  activeFileChange,
-  async (id) => {
+  [activeFileChange, gitLinked],
+  async ([id, linked]) => {
+    if (!linked) return;
     if (!id || id === lastFollowedChange) return;
     lastFollowedChange = id;
-    const change = fileChanges.value.find((item) => item.id === id);
+    const change = visibleFileChanges.value.find((item) => item.id === id);
     if (!change?.live) return;
     fileView.value = "diff";
     // Stash the raw path before awaiting: a fresh mount runs the refresh watcher
@@ -917,29 +924,100 @@ function askToFix(run: { command: string; result: ProgrammingCommandResult }) {
     `${t("workspace.fixPrompt", { command: run.command })}\n\n${t("workspace.exitCode", { code: run.result.exit_code })}\n\n${output}`,
   );
 }
-async function runTests() {
+async function runTests(testCase?: WorkspaceTestCase) {
   const value = command.value.trim(),
     epoch = generation;
   if (!value || running.value) return;
   running.value = true;
   runError.value = "";
+  if (testCase) testCaseStates.value = { ...testCaseStates.value, [testCase.id]: { status: "running", command: value, output: "" } };
   try {
     const result = await api.run(props.sessionId, value);
     if (epoch !== generation) return;
+    const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
+    if (testCase) testCaseStates.value = { ...testCaseStates.value, [testCase.id]: { status: result.killed || result.exit_code !== 0 ? "failed" : "passed", command: value, output } };
     runs.value = [{ id: ++runId, command: value, result }, ...runs.value].slice(
       0,
       10,
     );
   } catch {
-    if (epoch === generation) runError.value = t("workspace.runError");
+    if (epoch === generation) {
+      runError.value = t("workspace.runError");
+      if (testCase) testCaseStates.value = { ...testCaseStates.value, [testCase.id]: { status: "failed", command: value, output: runError.value } };
+    }
   } finally {
     if (epoch === generation) running.value = false;
   }
 }
+async function discoverTestCases() {
+  const epoch = ++discoveryGeneration;
+  const session = props.sessionId;
+  testDiscoveryLoading.value = true;
+  testDiscoveryError.value = "";
+  testCases.value = [];
+  try {
+    const queue = [{ path: "", depth: 0 }];
+    const files = new Set<string>();
+    const packageRoots = new Set<string>();
+    while (queue.length) {
+      const batch = queue.splice(0, 8);
+      const listings = await Promise.all(batch.map(async (dir) => ({
+        dir,
+        result: await api.tree(session, dir.path),
+      })));
+      if (epoch !== discoveryGeneration) return;
+      for (const { dir, result } of listings) {
+        for (const node of result.nodes) {
+          if (isWorkspaceTestFile(node)) files.add(node.path);
+          if (node.kind === "file" && node.name === "package.json") {
+            packageRoots.add(node.path.includes("/") ? node.path.slice(0, node.path.lastIndexOf("/")) : "");
+          }
+          if (shouldScanWorkspaceDirectory(node)) queue.push({ path: node.path, depth: dir.depth + 1 });
+        }
+      }
+    }
+    const paths = [...files];
+    const cases: WorkspaceTestCase[] = [];
+    for (let i = 0; i < paths.length; i += 12) {
+      const group = await Promise.all(paths.slice(i, i + 12).map(async (path) => {
+        try {
+          const packageRoot = [...packageRoots]
+            .filter((root) => !root || path.startsWith(`${root}/`))
+            .sort((a, b) => b.length - a.length)[0] || "";
+          return parseWorkspaceTestCases(path, (await api.file(session, path)).content, packageRoot);
+        }
+        catch { return []; }
+      }));
+      if (epoch !== discoveryGeneration) return;
+      cases.push(...group.flat());
+    }
+    testCases.value = cases;
+  } catch {
+    if (epoch === discoveryGeneration) testDiscoveryError.value = t("workspace.testDiscoveryError");
+  } finally {
+    if (epoch === discoveryGeneration) testDiscoveryLoading.value = false;
+  }
+}
+function runTestCase(testCase: WorkspaceTestCase, mode: "manual" | "ai") {
+  if (mode === "ai") {
+    emit("ask", t("workspace.testCasePrompt", { path: testCase.path, name: testCase.name }));
+  } else if (testCase.command) {
+    command.value = testCase.command;
+    void runTests(testCase);
+  }
+}
+watch(
+  () => [props.sessionId, props.tab, props.revision] as const,
+  ([, tab]) => {
+    if (tab === "tests") void discoverTestCases();
+  },
+  { immediate: true },
+);
 watch(
   () => props.sessionId,
   () => {
     generation++;
+    gitLinked.value = false;
     fileRequest++;
     previewRequest++;
     treeRequests.clear();
@@ -959,6 +1037,9 @@ watch(
     previewError.value = "";
     previewLoading.value = false;
     runs.value = [];
+    testCases.value = [];
+    testCaseStates.value = {};
+    testDiscoveryError.value = "";
     running.value = false;
     command.value = "";
     runError.value = "";
