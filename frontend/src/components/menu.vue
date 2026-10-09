@@ -767,6 +767,14 @@ import {
 import { useChatResourcesStore } from "@/stores/chatResources";
 import { listAllIMChannels } from "@/api/agent/index";
 import SessionSidebarRow from "./SessionSidebarRow.vue";
+import {
+  emptyFolderLayout,
+  normalizeFolderLayout,
+  resolveFolderLayout,
+  toServerLayout,
+  type ConversationFolder,
+  type FolderLayout,
+} from "./sessionFolderState";
 import PanelResizeHandle from "./PanelResizeHandle.vue";
 import {
   SIDEBAR_COLLAPSED_WIDTH,
@@ -814,7 +822,6 @@ import {
   shouldShowSessionSourceFilter,
 } from "./sessionSidebarSourceFilter";
 import { logout as logoutApi, updateMyPreferences } from "@/api/auth";
-import type { SessionFolderState } from "@/api/auth";
 import { useMenuStore } from "@/stores/menu";
 import { useSessionActivityStore } from "@/stores/sessionActivity";
 import { useAuthStore } from "@/stores/auth";
@@ -865,7 +872,6 @@ const sessionActivity = useSessionActivityStore();
 const { entries: sessionActivityEntries } = storeToRefs(sessionActivity);
 let sessionActivityTimer: ReturnType<typeof setInterval> | undefined;
 const authStore = useAuthStore();
-type ConversationFolder = { id: string; name: string; collapsed: boolean };
 const conversationFolders = ref<ConversationFolder[]>([]);
 const sessionFolderAssignments = ref<Record<string, string>>({});
 const projectsCollapsed = ref(false);
@@ -891,59 +897,22 @@ const folderStorageKey = computed(
 const folderPrefTenantKey = computed(() =>
   String(authStore.effectiveTenantId || "default"),
 );
-type FolderState = {
-  folders: ConversationFolder[];
-  assignments: Record<string, string>;
-  projectsCollapsed: boolean;
-  sortMode: "recent" | "manual";
-};
-const emptyFolderState = (): FolderState => ({
-  folders: [],
-  assignments: {},
-  projectsCollapsed: false,
-  sortMode: "manual",
-});
-/** 同时接受服务端（snake_case）与旧 localStorage（camelCase）两种形状。 */
-const normalizeFolderState = (saved: any): FolderState => ({
-  folders: Array.isArray(saved?.folders)
-    ? saved.folders
-        .filter(
-          (folder: any) =>
-            folder &&
-            typeof folder.id === "string" &&
-            typeof folder.name === "string",
-        )
-        .map((folder: any) => ({
-          id: folder.id,
-          name: folder.name,
-          collapsed: Boolean(folder.collapsed),
-        }))
-    : [],
-  assignments:
-    saved?.assignments && typeof saved.assignments === "object"
-      ? saved.assignments
-      : {},
-  projectsCollapsed:
-    saved?.projectsCollapsed === true || saved?.projects_collapsed === true,
-  sortMode:
-    (saved?.sortMode ?? saved?.sort_mode) === "recent" ? "recent" : "manual",
-});
-const currentFolderState = (): FolderState => ({
+const currentFolderState = (): FolderLayout => ({
   folders: conversationFolders.value,
   assignments: sessionFolderAssignments.value,
   projectsCollapsed: projectsCollapsed.value,
   sortMode: folderSortMode.value,
 });
-const applyFolderState = (state: FolderState) => {
+const applyFolderState = (state: FolderLayout) => {
   conversationFolders.value = state.folders;
   sessionFolderAssignments.value = state.assignments;
   projectsCollapsed.value = state.projectsCollapsed;
   folderSortMode.value = state.sortMode;
 };
-const readLocalFolderState = (key: string): FolderState | null => {
+const readLocalFolderState = (key: string): FolderLayout | null => {
   try {
     const raw = localStorage.getItem(key);
-    return raw ? normalizeFolderState(JSON.parse(raw)) : null;
+    return raw ? normalizeFolderLayout(JSON.parse(raw)) : null;
   } catch {
     return null;
   }
@@ -959,21 +928,11 @@ const writeLocalFolderState = () => {
     // Folder organization remains available for this view if storage is unavailable.
   }
 };
-const serverFolderState = (): FolderState | null => {
+const serverFolderState = (): FolderLayout | null => {
   const entry =
     authStore.user?.preferences?.session_folders?.[folderPrefTenantKey.value];
-  return entry ? normalizeFolderState(entry) : null;
+  return entry ? normalizeFolderLayout(entry) : null;
 };
-const toServerFolderState = (state: FolderState): SessionFolderState => ({
-  folders: state.folders.map((folder) => ({
-    id: folder.id,
-    name: folder.name,
-    collapsed: folder.collapsed,
-  })),
-  assignments: state.assignments,
-  sort_mode: state.sortMode,
-  projects_collapsed: state.projectsCollapsed,
-});
 /**
  * 上报当前空间的文件夹组织。每次只发这一个空间，后端按空间键合并，
  * 所以不会覆盖同一账号在其它空间里的组织。
@@ -986,7 +945,7 @@ const pushFolderStateToServer = async () => {
   if (!reconciledFolderKeys.has(folderStorageKey.value)) return;
   const res = await updateMyPreferences({
     session_folders: {
-      [folderPrefTenantKey.value]: toServerFolderState(currentFolderState()),
+      [folderPrefTenantKey.value]: toServerLayout(currentFolderState()),
     },
   });
   if (res.success && res.data) {
@@ -1003,17 +962,10 @@ const persistConversationFolders = () => {
     void pushFolderStateToServer();
   }, 1000);
 };
-/** 有实际内容的布局：至少有一个文件夹，或有会话归属。类型谓词便于收窄。 */
-const hasFolderState = (state: FolderState | null): state is FolderState =>
-  !!state &&
-  (state.folders.length > 0 || Object.keys(state.assignments).length > 0);
 /**
- * 登录 / 切换空间时对齐一次。
- *
- * 关键约束：空状态永远不许覆盖非空状态。此前的写法一旦某一侧变成空的
- * （服务端被写过空记录、或本地缓存被覆盖过），就会把空当作真相应用并
- * 写回另一侧，两边一起销毁——文件夹就此消失，且 assignments 还在时
- * 所有会话会落回外层。所以这里按「谁非空谁为准」来决断。
+ * 登录 / 切换空间时对齐一次。取舍规则在 sessionFolderState.ts 里并配有测试：
+ * 空状态永远不许覆盖非空状态——早先按「服务端有记录就算数」判断，空记录
+ * 会被当成真相应用并写回另一侧，两边一起销毁。
  */
 const reconciledFolderKeys = new Set<string>();
 const reconcileFolderState = () => {
@@ -1022,30 +974,20 @@ const reconcileFolderState = () => {
   if (!authStore.user) return; // 还没登录，等 user 到位再对齐
   reconciledFolderKeys.add(key);
 
-  const remote = serverFolderState();
-  const local = readLocalFolderState(key);
-
-  if (hasFolderState(remote)) {
-    // 服务端有内容：以它为准（换设备后这里才是真相）。
-    applyFolderState(remote);
-    writeLocalFolderState();
-    return;
-  }
-  if (hasFolderState(local)) {
-    // 服务端空而本地有：服务端那份不可信，用本地并补写上去。
-    // 这同时是升级迁移（旧版本只有 localStorage）和空记录的自愈路径。
-    applyFolderState(local);
-    void pushFolderStateToServer();
-    return;
-  }
-  // 两边都空：确实没有组织过，保持空即可。
-  applyFolderState(emptyFolderState());
+  const { layout, upload } = resolveFolderLayout(
+    serverFolderState(),
+    readLocalFolderState(key),
+  );
+  applyFolderState(layout);
+  writeLocalFolderState();
+  // upload = 服务端没有可用内容而本地有：补写上去（升级迁移 / 空记录自愈）。
+  if (upload) void pushFolderStateToServer();
 };
 // 先用本地缓存渲染，避免等接口时侧栏空白。
 watch(
   folderStorageKey,
   (key) => {
-    applyFolderState(readLocalFolderState(key) ?? emptyFolderState());
+    applyFolderState(readLocalFolderState(key) ?? emptyFolderLayout());
   },
   { immediate: true },
 );
