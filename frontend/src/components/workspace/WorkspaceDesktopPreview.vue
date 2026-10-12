@@ -2,10 +2,16 @@
   <section ref="root" class="workspace-desktop" :aria-label="t('workspace.remoteDesktop')">
     <header class="desktop-toolbar">
       <span><t-icon name="desktop" size="16px" />{{ t('workspace.remoteDesktop') }}</span>
-      <button type="button" :title="t(fullscreen ? 'preview.exitFullscreen' : 'preview.fullscreen')"
-        :aria-label="t(fullscreen ? 'preview.exitFullscreen' : 'preview.fullscreen')" @click="toggleFullscreen">
-        <t-icon :name="fullscreen ? 'fullscreen-exit' : 'fullscreen'" size="16px" />
-      </button>
+      <div class="desktop-toolbar__actions">
+        <button type="button" :disabled="loading" :title="t('workspace.previewRefresh')"
+          :aria-label="t('workspace.previewRefresh')" @click="emit('retry')">
+          <t-icon name="refresh" size="16px" />
+        </button>
+        <button type="button" :title="t(fullscreen ? 'preview.exitFullscreen' : 'preview.fullscreen')"
+          :aria-label="t(fullscreen ? 'preview.exitFullscreen' : 'preview.fullscreen')" @click="toggleFullscreen">
+          <t-icon :name="fullscreen ? 'fullscreen-exit' : 'fullscreen'" size="16px" />
+        </button>
+      </div>
     </header>
     <p v-if="error" class="desktop-notice" role="alert">{{ error }}</p>
     <div v-if="loading" class="desktop-empty" role="status">
@@ -29,7 +35,7 @@ import { useI18n } from 'vue-i18n'
 import SandboxDesktop from '@/views/chat/components/SandboxDesktop.vue'
 
 const props = defineProps<{ sessionId: string; agentId?: string; agentSourceTenantId?: string | number | null; enabled: boolean; loading: boolean; active: boolean }>()
-const emit = defineEmits<{ status: [value: string] }>()
+const emit = defineEmits<{ status: [value: string]; retry: [] }>()
 const { t } = useI18n()
 const root = ref<HTMLElement | null>(null)
 const fullscreen = ref(false), error = ref('')
@@ -58,8 +64,10 @@ onBeforeUnmount(() => {
 .workspace-desktop:fullscreen { width: 100vw; height: 100dvh; }
 .desktop-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 0 12px; border-bottom: 1px solid var(--td-component-stroke); flex-shrink: 0; }
 .desktop-toolbar span { display: flex; align-items: center; gap: 8px; font-size: var(--app-text-sm); color: var(--td-text-color-secondary); }
+.desktop-toolbar__actions { display: flex; gap: 4px; }
 .desktop-toolbar button { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--td-text-color-secondary); cursor: pointer; }
 .desktop-toolbar button:hover { background: var(--td-bg-color-container-hover); }
+.desktop-toolbar button:disabled { opacity: 0.5; cursor: not-allowed; }
 .desktop-toolbar button:focus-visible { outline: 2px solid var(--td-brand-color); outline-offset: 2px; }
 .desktop-empty { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 32px; text-align: center; color: var(--td-text-color-secondary); }
 .desktop-empty h3 { margin: 0; font-size: 16px; font-weight: 500; color: var(--td-text-color-primary); }

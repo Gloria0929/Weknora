@@ -44,7 +44,7 @@ const compiled = ts.transpile(setup, { target: ts.ScriptTarget.ES2022, module: t
 function mount(capabilities, options = {}) {
   const props = reactive({ sessionId: 'a', workspaceRevision: 0, ...options })
   const ui = { visible: ref(true), activeTab: ref('preview'), width: ref(560), clearArtifactFocus() {} }
-  const resources = reactive({ agents: [{ id: 'agent', config: { sandbox_config_id: 'cfg' } }], sandboxConfigs: [{ id: 'cfg', config: { desktop_enabled: true } }], ensureSandboxConfigs: async () => {} })
+  const resources = reactive({ agents: [{ id: 'agent', config: { sandbox_config_id: 'cfg' } }], sandboxConfigs: [{ id: 'cfg', config: { desktop_enabled: true } }], ensureSandboxConfigs: async () => {}, ensureAgents: async () => {} })
   const scope = effectScope()
   const state = scope.run(() => vm.runInNewContext(`${compiled}; ({ desktopTabVisible, isWorkspaceTab, desktopMounted, tabs })`, {
     computed, nextTick, ref, watch, defineAsyncComponent: () => ({}), defineProps: () => props, withDefaults: value => value, defineEmits: () => () => {},

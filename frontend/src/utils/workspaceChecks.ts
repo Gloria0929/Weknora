@@ -72,6 +72,11 @@ function directKind(tokens: string[]): KnownKind | null {
   if (MAKE_TOOLS.has(bin)) return makeTargetKind(args)
 
   switch (bin) {
+    // Shell conditions inspect files/values; they do not run project tests.
+    case 'test':
+    case '[':
+    case '[[':
+      return null
     case 'go':
       if (arg1 === 'test') return 'tests'
       if (arg1 === 'vet') return 'lint'
@@ -88,7 +93,9 @@ function directKind(tokens: string[]): KnownKind | null {
       if (arg1 === 'check') return 'types'
       return null
     case 'node':
-      if (arg1 === '--test' || arg1 === '-t') return 'tests'
+    case 'tsx':
+    case 'ts-node':
+      if (args.some(token => /^--test(?:=|$)/.test(token)) || arg1 === '-t') return 'tests'
       if (isTestScript(args[0] || '')) return 'tests'
       return null
     case 'vite':
@@ -120,8 +127,9 @@ function directKind(tokens: string[]): KnownKind | null {
     case 'phpunit':
     case 'nose2':
     case 'cypress':
-    case 'playwright':
       return 'tests'
+    case 'playwright':
+      return arg1 === 'test' ? 'tests' : null
   }
 
   if (bin === 'gradle' || bin === 'gradlew' || bin === 'mvn' || bin === 'mvnw') {

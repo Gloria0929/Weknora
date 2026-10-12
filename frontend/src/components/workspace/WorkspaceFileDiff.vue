@@ -1,6 +1,13 @@
 <template>
   <details class="file-diff" @toggle="onToggle">
     <summary class="file-diff__header">
+      <span v-if="selectable" class="file-diff__selection" @click.stop @keydown.stop>
+        <t-checkbox :checked="selected" :disabled="selectionDisabled"
+          :aria-label="t('workspace.selectCommitFile', { path: change.path })"
+          @change="(checked: boolean) => emit('selection-change', checked)">
+          <span class="file-diff__selection-label">{{ t('workspace.selectCommitFile', { path: change.path }) }}</span>
+        </t-checkbox>
+      </span>
       <t-icon :name="expanded ? 'chevron-down' : 'chevron-right'" size="14px" />
       <t-icon name="file-code" size="17px" />
       <span class="file-diff__path" :title="change.path"><span>{{ directory }}</span><strong>{{ name }}</strong></span>
@@ -30,8 +37,8 @@ import type { FileChange } from '@/composables/useFileChanges'
 import { buildUnifiedDiff } from '@/utils/unifiedDiff'
 import { highlightWorkspaceLines, trimHighlightedIndent } from '@/utils/workspaceCode'
 
-const props = defineProps<{ change: FileChange }>()
-const emit = defineEmits<{ 'open-source': [] }>()
+const props = defineProps<{ change: FileChange; selectable?: boolean; selected?: boolean; selectionDisabled?: boolean }>()
+const emit = defineEmits<{ 'open-source': []; 'selection-change': [checked: boolean] }>()
 const { t } = useI18n()
 const expanded = ref(false)
 function onToggle(event: Event) {
@@ -80,6 +87,8 @@ const trailingLines = computed(() => {
 .file-diff { border-bottom: 1px solid var(--td-component-stroke); --diff-add: #1a7f37; --diff-del: #cf222e; }
 .file-diff__header { display: flex; align-items: center; gap: 7px; padding: 14px 2px; cursor: pointer; list-style: none; font-size: 12px; }
 .file-diff__header::-webkit-details-marker { display: none; }
+.file-diff__selection { display: inline-flex; align-items: center; justify-content: center; flex: none; padding: 3px 0; }
+.file-diff__selection-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .file-diff__header > :not(.file-diff__path) { flex-shrink: 0; }
 .file-diff__header:focus-visible { outline: 2px solid var(--td-brand-color); outline-offset: -2px; border-radius: 6px; }
 .file-diff__path { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--td-text-color-secondary); }

@@ -90,6 +90,7 @@
             :agent-runs="agentRuns"
             :gateway="workspaceGateway"
             @ask="emit('ask', $event)"
+            @view-change="emit('workspaceViewChange', $event)"
           />
           <ChatArtifactsPanel
             v-show="panel?.activeTab.value === 'artifacts'"
@@ -145,6 +146,7 @@
             class="chat-sandbox-panel__desktop"
             @ask="emit('ask', $event)"
             @open-terminal="panel?.open('terminal')"
+            @retry="capabilityRefreshRevision++"
           />
         </div>
       </aside>
@@ -208,6 +210,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   (e: "artifactDeleted", payload: { messageId: string; index: number }): void;
   (e: "ask", prompt: string): void;
+  (e: "workspaceViewChange", view: "source" | "diff" | "preview"): void;
 }>();
 
 const { t } = useI18n();
@@ -216,6 +219,13 @@ const chatResources = useChatResourcesStore();
 const sandboxConfigsReady = ref(false);
 const previewCapabilities = ref<ProgrammingPreviewCapabilities | null>(null);
 const capabilitiesLoading = ref(false);
+const capabilityRefreshRevision = ref(0);
+const agentSandboxSignature = computed(() => {
+  const agent = chatResources.agents.find((item) => item.id === props.agentId);
+  const configId = agent?.config?.sandbox_config_id || "";
+  const cfg = chatResources.sandboxConfigs.find((item) => item.id === configId);
+  return `${configId}:${Boolean(cfg?.config?.desktop_enabled)}`;
+});
 const workspaceMounted = ref(false);
 const isWorkspaceTab = computed(
   () =>
@@ -316,20 +326,36 @@ watch(
       panel?.visible.value,
       props.sessionId,
       props.agentId,
+      props.agentSourceTenantId,
       props.workspaceRevision,
+      agentSandboxSignature.value,
+      capabilityRefreshRevision.value,
     ] as const,
   async ([visible], previous, onCleanup) => {
     let cancelled = false;
     onCleanup(() => {
       cancelled = true;
     });
-    if (previous?.[1] !== props.sessionId) previewCapabilities.value = null;
+    if (
+      previous?.[1] !== props.sessionId ||
+      previous?.[2] !== props.agentId ||
+      previous?.[3] !== props.agentSourceTenantId ||
+      previous?.[5] !== agentSandboxSignature.value ||
+      previous?.[6] !== capabilityRefreshRevision.value
+    ) previewCapabilities.value = null;
     if (!visible || props.workspaceGateway) return;
+    // Recheck resource metadata on reopen, agent changes and an explicit retry.
+    // A cached CLI capability must not outlive switching back to a desktop config.
+    const forceResources = !previous?.[0] ||
+      previous?.[2] !== props.agentId ||
+      previous?.[3] !== props.agentSourceTenantId ||
+      previous?.[6] !== capabilityRefreshRevision.value;
     capabilitiesLoading.value = previewCapabilities.value === null;
     await Promise.allSettled([
-      chatResources.ensureSandboxConfigs().then(() => {
+      chatResources.ensureSandboxConfigs(forceResources).then(() => {
         if (!cancelled) sandboxConfigsReady.value = true;
       }),
+      chatResources.ensureAgents(forceResources),
       getProgrammingPreviewCapabilities(props.sessionId).then((response) => {
         if (!cancelled) previewCapabilities.value = response.data;
       }),

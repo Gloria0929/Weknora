@@ -221,10 +221,6 @@
                 v-if="session.role == 'user'"
                 class="message-row"
                 :data-message-id="session.id || undefined"
-                :class="{
-                  'is-minimap-target':
-                    session.id && session.id === minimapTargetId,
-                }"
               >
                 <usermsg
                   :content="session.content"
@@ -402,6 +398,7 @@
     :workspace-path="workspacePath"
     :agent-runs="workspaceRuns"
     @ask="prefillWorkspacePrompt"
+    @workspace-view-change="workspaceFileView = $event"
     @artifact-deleted="handleArtifactDeleted"
   />
 </template>
@@ -621,12 +618,14 @@ const limit = ref(20);
 const messagesList = reactive([]);
 const workspaceRevision = ref(0);
 const workspacePath = ref("");
+const workspaceFileView = ref("source");
 const workspaceRuns = computed(() => collectWorkspaceRuns(messagesList));
 // Only a newly started conversation may reveal the panel on its first live
 // file output. History restore, stream reattachment and later sends never arm it.
 let workspaceAutoRevealPending = false;
 // Collect this turn's signals to select its final result in an already open panel.
 let workspaceTurnSignals = [];
+let workspaceTurnIntent = "chat";
 const workspacePanelTabs = ["source", "preview", "tests"];
 let fileChangeSequence = 0;
 
@@ -673,7 +672,9 @@ function showLiveWorkspaceDiff(path) {
 
 function openCompletedWorkspacePanel() {
   const decision = completedWorkspacePanel(workspaceTurnSignals);
+  const turnIntent = workspaceTurnIntent;
   workspaceTurnSignals = [];
+  workspaceTurnIntent = "chat";
   if (
     !decision ||
     props.embeddedMode ||
@@ -691,6 +692,18 @@ function openCompletedWorkspacePanel() {
     !workspacePanelTabs.includes(sandboxPanel.activeTab.value)
   )
     return;
+  // The reader is reviewing changes. Completion may update the file list,
+  // but switching to preview/tests requires the reader's own action.
+  if (sandboxPanel.activeTab.value === "source" && workspaceFileView.value === "diff")
+    return;
+  // Verification can follow edits made through shell_exec as well as the
+  // file tools. Keep the current code/preview view unless tests were requested.
+  if (
+    decision.tab === "tests" &&
+    turnIntent !== "test" &&
+    ["source", "preview"].includes(sandboxPanel.activeTab.value)
+  )
+    return;
   sandboxPanel.open(decision.tab);
 }
 function prefillWorkspacePrompt(prompt) {
@@ -704,8 +717,10 @@ watch(
     sandboxPanel.close();
     sandboxPanel.activeTab.value = "preview";
     workspacePath.value = "";
+    workspaceFileView.value = "source";
     workspaceRevision.value = 0;
     workspaceTurnSignals = [];
+    workspaceTurnIntent = "chat";
     workspaceAutoRevealPending = false;
     fileChanges.clearChanges();
   },
@@ -1957,6 +1972,7 @@ const sendMsg = async (
     value,
     workspaceIntent(route.query.mode),
   );
+  workspaceTurnIntent = intent;
   if (!props.embeddedMode && ["build", "code", "test"].includes(intent)) {
     await activateWorkspaceAgent(useSettingsStoreInstance, nextTick);
   }

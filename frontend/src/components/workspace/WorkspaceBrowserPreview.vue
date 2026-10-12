@@ -2,13 +2,13 @@
   <section class="workspace-browser">
     <div class="preview-modes" role="group" :aria-label="t('workspace.previewMode')">
       <button type="button" :aria-pressed="mode === 'url'" @click="mode = 'url'">{{ t('workspace.urlPreview') }}</button>
-      <button type="button" :aria-pressed="mode === 'desktop'" :aria-label="desktopUnavailable ? `${t('workspace.remoteDesktop')} · ${t('workspace.unavailableBadge')}` : t('workspace.remoteDesktop')" :title="desktopUnavailable ? t('workspace.desktopUnsupportedHint') : t('workspace.remoteDesktop')" @click="mode = 'desktop'">
+      <button type="button" :aria-pressed="mode === 'desktop'" :aria-label="desktopUnavailable ? `${t('workspace.remoteDesktop')} · ${t('workspace.unavailableBadge')}` : t('workspace.remoteDesktop')" :title="desktopUnavailable ? t('workspace.desktopUnsupportedHint') : t('workspace.remoteDesktop')" @click="openDesktop">
         {{ t('workspace.remoteDesktop') }}<span v-if="desktopUnavailable" class="desktop-unavailable">{{ t('workspace.unavailableBadge') }}</span>
       </button>
     </div>
     <WorkspaceUrlPreview v-show="mode === 'url'" :key="sessionId" :session-id="sessionId" :revision="revision" :active="active && mode === 'url'" @ask="emit('ask', $event)" @open-terminal="emit('open-terminal')" />
-    <WorkspaceDesktopPreview v-if="mode === 'desktop'" :session-id="sessionId" :agent-id="agentId" :agent-source-tenant-id="agentSourceTenantId"
-      :enabled="enabled && !desktopUnavailable" :loading="loading" :active="active && mode === 'desktop'" @status="desktopStatus = $event" />
+    <WorkspaceDesktopPreview v-if="mode === 'desktop'" :key="desktopGeneration" :session-id="sessionId" :agent-id="agentId" :agent-source-tenant-id="agentSourceTenantId"
+      :enabled="enabled && !desktopUnavailable" :loading="loading" :active="active && mode === 'desktop'" @status="desktopStatus = $event" @retry="retryDesktop" />
   </section>
 </template>
 
@@ -18,12 +18,34 @@ import { useI18n } from 'vue-i18n'
 import WorkspaceDesktopPreview from './WorkspaceDesktopPreview.vue'
 import WorkspaceUrlPreview from './WorkspaceUrlPreview.vue'
 const props = defineProps<{ sessionId: string; agentId?: string; agentSourceTenantId?: string | number | null; enabled: boolean; loading: boolean; active: boolean; revision?: number }>()
-const emit = defineEmits<{ ask: [prompt: string]; 'open-terminal': [] }>()
+const emit = defineEmits<{ ask: [prompt: string]; 'open-terminal': []; retry: [] }>()
 const { t } = useI18n()
 const mode = ref<'url' | 'desktop'>('url')
 const desktopStatus = ref('')
+const desktopGeneration = ref(0)
 const desktopUnavailable = computed(() => !props.loading && (!props.enabled || desktopStatus.value === 'unsupported'))
-watch(() => [props.sessionId, props.enabled], () => { desktopStatus.value = '' })
+function resetDesktop() {
+  desktopStatus.value = ''
+  desktopGeneration.value++
+}
+function retryDesktop() {
+  resetDesktop()
+  emit('retry')
+}
+function openDesktop() {
+  mode.value = 'desktop'
+  // Unsupported is a result for the previous connection, not a permanent
+  // veto on checking the session again after its configuration changes.
+  if (desktopUnavailable.value) retryDesktop()
+}
+watch(() => [props.sessionId, props.agentId, props.agentSourceTenantId], resetDesktop)
+watch(() => props.enabled, () => {
+  if (desktopStatus.value === 'unsupported') resetDesktop()
+  else desktopStatus.value = ''
+})
+watch(() => props.revision, () => {
+  if (desktopStatus.value === 'unsupported') resetDesktop()
+})
 watch(() => props.sessionId, () => { mode.value = 'url' })
 </script>
 

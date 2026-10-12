@@ -203,10 +203,6 @@ const emit = defineEmits(['scroll-bottom', 'render-complete-change', 'fork', 're
 const { t } = useI18n()
 const uiStore = useUIStore();
 let parentMd = ref()
-const { float: citationFloat, rebind: rebindCitations, cancelClose: cancelCitationClose, scheduleClose: scheduleCitationClose } = useChatCitationPopover(parentMd, {
-    getKnowledgeReferences: () => props.session?.knowledge_references,
-    sessionId: () => props.sessionId,
-});
 let reviewUrl = ref('')
 let reviewImg = ref(false)
 let isImgLoading = ref(false);
@@ -249,6 +245,14 @@ const props = defineProps({
         type: Boolean,
         default: false
     }
+});
+
+// useCitationPopover 内部的 watch 在创建时就会立即读取 getCacheScope，
+// 而它会调用这里的 sessionId 回调。必须放在 defineProps 之后，
+// 否则回调会读到尚未初始化的 props。
+const { float: citationFloat, rebind: rebindCitations, cancelClose: cancelCitationClose, scheduleClose: scheduleCitationClose } = useChatCitationPopover(parentMd, {
+    getKnowledgeReferences: () => props.session?.knowledge_references,
+    sessionId: () => props.sessionId,
 });
 
 const canFork = computed(() => props.canFork === true && !props.embeddedMode)

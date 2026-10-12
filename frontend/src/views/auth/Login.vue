@@ -1,10 +1,50 @@
 <template>
   <div class="auth-page">
+    <!-- 右上角控制：登录前也要能切语言与主题。语言存 localStorage('locale')，
+         主题存 WeKnora_anon_theme（见 useTheme / index.html 的首屏引导），
+         登录后由 preferenceStorage 迁移到用户命名空间。 -->
+    <div class="auth-toolbar">
+      <t-dropdown
+        :options="languageOptions"
+        trigger="click"
+        placement="bottom-right"
+        attach="body"
+        @click="handleLanguageChange"
+      >
+        <button
+          type="button"
+          class="auth-toolbar__btn"
+          :aria-label="$t('language.selectLanguage')"
+          aria-haspopup="menu"
+        >
+          <t-icon name="translate" size="16px" />
+          <span class="auth-toolbar__label">{{ currentLanguageLabel }}</span>
+          <t-icon name="chevron-down" size="12px" />
+        </button>
+      </t-dropdown>
+      <button
+        type="button"
+        class="auth-toolbar__btn auth-toolbar__btn--icon"
+        :aria-label="$t('theme.theme')"
+        :aria-pressed="isDark"
+        :title="isDark ? $t('theme.light') : $t('theme.dark')"
+        @click="toggleTheme"
+      >
+        <t-icon :name="isDark ? 'sunny' : 'moon'" size="16px" />
+      </button>
+    </div>
+
     <!-- 左侧品牌面板 -->
     <aside class="brand-panel">
 
       <div class="brand-panel__inner">
-        <div class="brand-panel__eyebrow">KNOWLEDGE / AGENT / WORKSPACE</div>
+        <!-- 与 WorkspaceWelcome 同一套三条杠标志，替掉原先只存在于样式里的字标。 -->
+        <div class="brand-lockup">
+          <span class="brand-mark" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </span>
+          <span class="brand-lockup__name">WeKnora</span>
+        </div>
 
         <div class="brand-copy">
           <h1 class="brand-copy__title">{{ $t("platform.subtitle") }}</h1>
@@ -13,42 +53,15 @@
 
         <ul class="brand-features">
           <li class="brand-features__item">
-            <span class="brand-features__check">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="3"
-              >
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            </span>
+            <t-icon name="check" class="brand-features__check" size="18px" />
             <span>{{ $t("platform.multimodalParsing") }}</span>
           </li>
           <li class="brand-features__item">
-            <span class="brand-features__check">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="3"
-              >
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            </span>
+            <t-icon name="check" class="brand-features__check" size="18px" />
             <span>{{ $t("platform.hybridSearchEngine") }}</span>
           </li>
           <li class="brand-features__item">
-            <span class="brand-features__check">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="3"
-              >
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            </span>
+            <t-icon name="check" class="brand-features__check" size="18px" />
             <span>{{ $t("platform.ragQandA") }}</span>
           </li>
         </ul>
@@ -58,11 +71,6 @@
           <span class="brand-tag">{{ $t("platform.agent") }}</span>
           <span class="brand-tag">{{ $t("platform.wiki") }}</span>
           <span class="brand-tag">{{ $t("platform.hybridSearch") }}</span>
-        </div>
-
-        <div class="brand-panel__meta">
-          <span class="brand-panel__meta-dot"></span>
-          <span>Private knowledge, ready to work</span>
         </div>
       </div>
     </aside>
@@ -137,12 +145,12 @@
             </t-form-item>
 
             <t-button
-              theme="default"
+              theme="primary"
               type="submit"
               size="large"
               block
               :loading="loading"
-              class="btn btn--primary"
+              class="btn btn--submit"
             >
               {{ loading ? $t("auth.loggingIn") : $t("auth.login") }}
             </t-button>
@@ -154,7 +162,7 @@
               size="large"
               block
               :disabled="loading"
-              class="btn btn--ghost"
+              class="btn"
               @click="toggleMode"
             >
               {{ $t("auth.createAccount") }}
@@ -170,7 +178,7 @@
                 block
                 :loading="oidcLoading"
                 :disabled="loading"
-                class="btn btn--oidc"
+                class="btn"
                 @click="handleOIDCLogin"
               >
                 {{ oidcLoading ? $t("auth.redirectingToOIDC") : oidcLoginText }}
@@ -265,12 +273,12 @@
             </t-form-item>
 
             <t-button
-              theme="default"
+              theme="primary"
               type="submit"
               size="large"
               block
               :loading="loading"
-              class="btn btn--primary"
+              class="btn btn--submit"
             >
               {{ loading ? $t("auth.registering") : $t("auth.register") }}
             </t-button>
@@ -289,7 +297,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, nextTick, onMounted, computed } from "vue";
+import { ref, reactive, nextTick, onMounted, onBeforeUnmount, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { MessagePlugin } from "tdesign-vue-next";
 import { useRoleLabel } from "@/composables/useRoleLabel";
@@ -309,12 +317,66 @@ import {
 } from "@/api/auth";
 import { useAuthStore } from "@/stores/auth";
 import { useI18n } from "vue-i18n";
+import {
+  SUPPORTED_LOCALES,
+  type SupportedLocale,
+} from "@/i18n/resolveDefaultLocale";
+import { useTheme } from "@/composables/useTheme";
 
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
-const { t, tm } = useI18n();
+const { t, tm, locale } = useI18n();
 const { formatRole, roleIcon } = useRoleLabel();
+const { currentTheme, setTheme } = useTheme();
+
+// 登录页也能切语言与主题：语言沿用设置页的写法（locale.value +
+// localStorage['locale']，i18n 启动时读取）；主题走 useTheme，落到
+// WeKnora_anon_theme，登录时由 preferenceStorage 迁移给用户。
+const LOCALE_LABEL_KEYS: Record<SupportedLocale, string> = {
+  "zh-CN": "language.zhCN",
+  "en-US": "language.enUS",
+  "ru-RU": "language.ruRU",
+  "ko-KR": "language.koKR",
+  "ja-JP": "language.jaJP",
+};
+
+const languageOptions = computed(() =>
+  SUPPORTED_LOCALES.map((code) => ({
+    content: t(LOCALE_LABEL_KEYS[code]),
+    value: code,
+    active: locale.value === code,
+  })),
+);
+
+const currentLanguageLabel = computed(() => {
+  const code = SUPPORTED_LOCALES.find((item) => item === locale.value);
+  return code ? t(LOCALE_LABEL_KEYS[code]) : locale.value;
+});
+
+const handleLanguageChange = (option: { value?: string }) => {
+  const code = option?.value;
+  if (!code || !(SUPPORTED_LOCALES as readonly string[]).includes(code)) return;
+  locale.value = code;
+  localStorage.setItem("locale", code);
+};
+
+// currentTheme 为 "system" 时 useTheme 不改写它，所以这里自己跟一次媒体查询，
+// 否则用户在登录页停留期间系统换主题、图标会停在旧状态。
+const prefersDark = window.matchMedia("(prefers-color-scheme: dark)");
+const systemDark = ref(prefersDark.matches);
+const onSystemThemeChange = (event: MediaQueryListEvent) => {
+  systemDark.value = event.matches;
+};
+const isDark = computed(() =>
+  currentTheme.value === "system"
+    ? systemDark.value
+    : currentTheme.value === "dark",
+);
+
+const toggleTheme = () => {
+  setTheme(isDark.value ? "light" : "dark");
+};
 
 const formRef = ref();
 const registerFormRef = ref();
@@ -593,6 +655,7 @@ const handleRegister = async () => {
 };
 
 onMounted(async () => {
+  prefersDark.addEventListener("change", onSystemThemeChange);
   const tokenFromQuery = String(route.query.token || "").trim();
   if (tokenFromQuery) {
     inviteToken.value = tokenFromQuery;
@@ -654,17 +717,70 @@ onMounted(async () => {
   loadOIDCConfig();
   loadAuthConfig();
 });
+
+onBeforeUnmount(() => {
+  prefersDark.removeEventListener("change", onSystemThemeChange);
+});
 </script>
 
 <style lang="less" scoped>
 /* ---------- 页面骨架 ---------- */
 .auth-page {
+  position: relative;
   display: flex;
   min-height: 100dvh;
   width: 100%;
   background: var(--td-bg-color-page);
   font-family: var(--app-font-family);
   overflow: hidden;
+}
+
+/* ---------- 右上角：语言 / 主题（登录前也可用）---------- */
+.auth-toolbar {
+  position: absolute;
+  top: var(--app-space-5);
+  right: var(--app-space-6);
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+}
+
+.auth-toolbar__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  padding: var(--app-space-2) var(--app-space-3);
+  border: 1px solid transparent;
+  border-radius: var(--app-radius-md);
+  background: transparent;
+  color: var(--td-text-color-secondary);
+  font-family: inherit;
+  font-size: var(--app-text-md);
+  cursor: pointer;
+  transition:
+    background-color var(--app-motion-fast) ease,
+    border-color var(--app-motion-fast) ease,
+    color var(--app-motion-fast) ease;
+
+  &:hover {
+    background: var(--td-bg-color-container-hover);
+    border-color: var(--td-component-stroke);
+    color: var(--td-text-color-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--td-text-color-secondary);
+    outline-offset: 2px;
+  }
+}
+
+.auth-toolbar__btn--icon {
+  padding: var(--app-space-2);
+}
+
+.auth-toolbar__label {
+  white-space: nowrap;
 }
 
 /* The entry screen shares the welcome page's paper and charcoal surfaces. */
@@ -691,46 +807,58 @@ onMounted(async () => {
   min-height: calc(100dvh - 88px);
 }
 
-.brand-logo {
+/* 品牌标记沿用侧栏与「新对话」首页那套三道圆角短线。 */
+.brand-lockup {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 22px;
+  gap: var(--app-space-3);
+  margin-bottom: var(--app-space-10);
 }
 
-.brand-logo__mark {
-  display: inline-flex;
+.brand-mark {
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: var(--app-radius-xl);
-  background: var(--td-brand-color-light);
+  gap: 4px;
+  height: 28px;
+  flex-shrink: 0;
   color: var(--td-text-color-primary);
-  font-weight: 800;
-  font-size: var(--app-text-4xl);
-  letter-spacing: -0.7px;
-  box-shadow: 0 0 0 6px color-mix(in srgb, var(--td-brand-color-light) 8%, transparent);
+  transform: rotate(-12deg);
+
+  > span {
+    display: block;
+    width: 5px;
+    background: currentColor;
+    border-radius: var(--app-radius-pill);
+
+    &:nth-child(1) {
+      height: 18px;
+    }
+
+    &:nth-child(2) {
+      height: 28px;
+    }
+
+    &:last-child {
+      height: 14px;
+      align-self: flex-end;
+    }
+  }
 }
 
-.brand-logo__text {
-  font-size: var(--app-text-4xl);
+.brand-lockup__name {
+  font-size: var(--app-text-3xl);
   font-weight: 700;
   letter-spacing: -0.3px;
   color: var(--td-text-color-primary);
 }
 
-.brand-panel__eyebrow,
+/* 卡片眉标（品牌字标），登录与注册共用。 */
 .auth-card__eyebrow {
   font-size: var(--app-text-xs);
   line-height: 1;
   letter-spacing: 0.16em;
   font-weight: 700;
-}
-
-.brand-panel__eyebrow {
-  color: var(--td-text-color-secondary);
-  margin-bottom: 74px;
 }
 
 .brand-copy {
@@ -768,26 +896,14 @@ onMounted(async () => {
 .brand-features__item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--app-space-3);
   font-size: var(--app-text-lg);
   color: var(--td-text-color-secondary);
 }
 
 .brand-features__check {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--td-brand-color) 22%, transparent);
-  color: var(--td-brand-color-hover);
   flex-shrink: 0;
-
-  svg {
-    width: 12px;
-    height: 12px;
-  }
+  color: var(--td-brand-color);
 }
 
 .brand-tags {
@@ -809,51 +925,16 @@ onMounted(async () => {
   color: var(--td-text-color-secondary);
 }
 
-.brand-panel__meta {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-size: var(--app-text-sm);
-  color: var(--td-text-color-secondary);
-}
-
-.brand-panel__meta-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--td-brand-color-hover);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--td-brand-color-hover) 12%, transparent);
-}
-
-.brand-footer {
-  margin-top: 48px;
-  font-size: var(--app-text-md);
-  color: var(--td-text-color-secondary);
-}
-
-/* ---------- 右侧表单区（亮暗色自适应）---------- */
+/* ---------- 右侧表单区 ---------- */
 .form-panel {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
-  padding: 48px clamp(24px, 6vw, 96px);
+  padding: var(--app-space-10) clamp(24px, 6vw, 96px);
   box-sizing: border-box;
   background: var(--td-bg-color-page);
-
-  &::after {
-    content: none;
-    position: absolute;
-    right: 8%;
-    bottom: 10%;
-    width: 160px;
-    height: 160px;
-    border: 1px solid var(--td-component-stroke);
-    border-radius: var(--app-radius-xl);
-    transform: rotate(18deg);
-    pointer-events: none;
-  }
 }
 
 .form-panel__inner {
@@ -863,12 +944,18 @@ onMounted(async () => {
   z-index: 1;
 }
 
+/* 暗色下 --td-bg-color-container 与页面同为 #141414，卡片会与背景同色而「消失」。
+   这里把卡片表面收进一个组件内变量：浅色仍是白卡，暗色抬到 sidebar 层。
+   暗色那一半写在文件末尾的非 scoped 样式块里 —— Vue 的 :global() 表达不了
+   「:root[theme-mode] + 后代」这种选择器（会静默丢规则或丢后代）。 */
 .auth-card {
+  --login-card-surface: var(--td-bg-color-container);
+
   width: 100%;
-  padding: 40px 42px 36px;
+  padding: var(--app-space-10) var(--app-space-8) var(--app-space-8);
   border: 1px solid var(--td-component-stroke);
   border-radius: var(--app-radius-2xl);
-  background: var(--td-bg-color-container);
+  background: var(--login-card-surface);
   box-shadow: var(--app-surface-shadow);
   box-sizing: border-box;
 }
@@ -884,7 +971,7 @@ onMounted(async () => {
 
 .auth-card__title {
   font-family: var(--app-font-family-display);
-  font-size: 30px;
+  font-size: clamp(24px, 2.2vw, 30px);
   font-weight: 500;
   letter-spacing: -1px;
   color: var(--td-text-color-primary);
@@ -934,12 +1021,12 @@ onMounted(async () => {
     font-size: var(--app-text-base);
     font-weight: 500;
     color: var(--td-text-color-primary);
-    margin-bottom: 6px;
+    margin-bottom: var(--app-space-2);
     padding: 0;
   }
 
   :deep(.t-form-item) {
-    margin-bottom: 20px;
+    margin-bottom: var(--app-space-5);
   }
 
   :deep(.t-input) {
@@ -947,8 +1034,8 @@ onMounted(async () => {
     border-color: var(--td-component-border);
     background: var(--td-bg-color-container);
     transition:
-      border-color var(--app-motion-base) ease,
-      box-shadow 0.18s ease;
+      border-color var(--app-motion-fast) ease,
+      box-shadow var(--app-motion-fast) ease;
 
     &:hover {
       border-color: var(--td-text-color-placeholder);
@@ -965,74 +1052,47 @@ onMounted(async () => {
   }
 }
 
-.btn {
+/* 配色交给 TDesign 与工作区令牌：theme="primary" 取 --td-brand-color
+   （浅色炭黑 / 暗色浅灰），文字色由 workspace-theme 的 --app-on-accent 保证对比。
+   这里只管尺寸、节奏与焦点态，因此不再需要强制覆盖。 */
+.auth-form :deep(.t-button.btn) {
   height: 50px;
   border-radius: var(--app-radius-xl);
   font-size: var(--app-text-lg);
   font-weight: 600;
-  transition: all var(--app-motion-base) ease;
+  transition:
+    background-color var(--app-motion-base) ease,
+    border-color var(--app-motion-base) ease,
+    color var(--app-motion-base) ease,
+    transform var(--app-motion-base) ease;
 
   & + .btn {
-    margin-top: 12px;
+    margin-top: var(--app-space-3);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--td-text-color-secondary);
+    outline-offset: 2px;
   }
 }
 
-.btn--primary {
-  background: var(--td-text-color-primary) !important;
-  border-color: var(--td-text-color-primary) !important;
-  border: none;
-  color: var(--td-bg-color-container) !important;
-  margin-top: 30px;
-
-  &:hover,
-  &:focus {
-    opacity: 0.88;
-    color: var(--td-bg-color-container) !important;
-    transform: translateY(-1px);
-  }
-
-  &:active {
-    opacity: 0.78;
-    color: var(--td-bg-color-container) !important;
-    transform: translateY(0);
-  }
-}
-
-.btn--ghost {
-  background: var(--td-bg-color-container);
-  border: 1px solid var(--td-component-border);
-  color: var(--td-text-color-primary);
-
-  &:hover {
-    border-color: var(--td-brand-color);
-    color: var(--td-brand-color);
-    background: var(--td-bg-color-secondarycontainer);
-  }
-}
-
-.btn--oidc {
-  background: var(--td-bg-color-container);
-  border: 1px solid var(--td-component-border);
-  color: var(--td-text-color-secondary);
-
-  &:hover {
-    border-color: var(--td-text-color-placeholder);
-    background: var(--td-bg-color-secondarycontainer-hover);
-  }
+.auth-form :deep(.t-button.btn--submit) {
+  margin-top: var(--app-space-8);
 }
 
 .auth-divider {
   position: relative;
   text-align: center;
-  margin: 22px 0 18px;
+  margin: var(--app-space-5) 0 var(--app-space-4);
   color: var(--td-text-color-placeholder);
   font-size: var(--app-text-md);
 
   span {
     position: relative;
     z-index: 1;
-    padding: 0 12px;
-    background: var(--td-bg-color-container);
+    padding: 0 var(--app-space-3);
+    /* 必须是卡片表面色，才能遮住下面的分隔线（暗色下卡片不等于 container）。 */
+    background: var(--login-card-surface);
   }
 
   &::before {
@@ -1049,9 +1109,9 @@ onMounted(async () => {
 .invite-banner {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 12px 14px;
-  margin-bottom: 24px;
+  gap: var(--app-space-3);
+  padding: var(--app-space-3) var(--app-space-4);
+  margin-bottom: var(--app-space-6);
   border-radius: var(--app-radius-lg);
   background: var(--td-bg-color-secondarycontainer);
   border: 1px solid var(--td-component-stroke);
@@ -1097,26 +1157,29 @@ onMounted(async () => {
     flex-direction: column;
   }
 
+  /* 单列布局下工具栏回到正常流，成为页首一行，不再压在品牌面板上。 */
+  .auth-toolbar {
+    position: static;
+    justify-content: flex-end;
+    padding: var(--app-space-3) var(--app-space-5) 0;
+  }
+
   .brand-panel {
     flex: 0 0 auto;
     min-width: 0;
-    padding: 36px 32px 40px;
+    padding: var(--app-space-8) var(--app-space-8) var(--app-space-10);
   }
 
   .brand-panel__inner {
     min-height: 0;
   }
 
-  .brand-logo {
-    margin-bottom: 18px;
-  }
-
-  .brand-panel__eyebrow {
-    margin-bottom: 42px;
+  .brand-lockup {
+    margin-bottom: var(--app-space-6);
   }
 
   .brand-copy {
-    margin-bottom: 28px;
+    margin-bottom: var(--app-space-6);
 
     &__title {
       font-size: var(--app-text-4xl);
@@ -1124,34 +1187,39 @@ onMounted(async () => {
   }
 
   .brand-features {
-    margin-bottom: 24px;
-  }
-
-  .brand-footer {
-    display: none;
+    margin-bottom: var(--app-space-6);
   }
 
   .form-panel {
-    padding: 48px 24px;
+    padding: var(--app-space-10) var(--app-space-6);
     align-items: flex-start;
   }
 
   .auth-card {
-    padding: 34px 32px 30px;
+    padding: var(--app-space-8);
   }
 }
 
 @media (max-width: 520px) {
+  .auth-toolbar {
+    padding: var(--app-space-2) var(--app-space-4) 0;
+  }
+
+  /* 极窄屏只留图标，避免语言名把工具栏撑到换行。 */
+  .auth-toolbar__label {
+    display: none;
+  }
+
   .brand-panel {
-    padding: 32px 20px;
+    padding: var(--app-space-8) var(--app-space-5);
   }
 
   .brand-panel__inner {
     min-height: auto;
   }
 
-  .brand-panel__eyebrow {
-    margin-bottom: 34px;
+  .brand-lockup {
+    margin-bottom: var(--app-space-5);
   }
 
   .brand-copy__title {
@@ -1163,7 +1231,7 @@ onMounted(async () => {
   }
 
   .form-panel {
-    padding: 32px 20px;
+    padding: var(--app-space-8) var(--app-space-5);
   }
 
   .auth-card__title {
@@ -1171,8 +1239,27 @@ onMounted(async () => {
   }
 
   .auth-card {
-    padding: 30px 22px 26px;
+    padding: var(--app-space-6) var(--app-space-5);
     border-radius: var(--app-radius-xl);
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-toolbar__btn,
+  .auth-form :deep(.t-button.btn) {
+    transition: none;
+  }
+}
+</style>
+
+<!--
+  非 scoped：只有跨整棵树的 :root[theme-mode="dark"] 前置条件需要它。
+  .auth-page 只在本文件使用，选择器仍被这一页收住。
+  Vue 的 :global() 无法表达「:root[theme-mode] + 后代」：::global(sel .x) 会被
+  静默丢弃，:global(sel) .x 会把 .x 丢掉，两种写法都得不到想要的规则。
+-->
+<style lang="less">
+:root:root[theme-mode="dark"] .auth-page .auth-card {
+  --login-card-surface: var(--td-bg-color-sidebar);
 }
 </style>

@@ -4945,6 +4945,10 @@ const handleSave = async () => {
       emit('success', created);
     } else {
       await updateAgent(formData.value.id, payload);
+      // The open chat also consumes this cache; reloading only the agent list
+      // leaves its selected sandbox and capabilities stale until the TTL expires.
+      chatResources.invalidate('agents');
+      void chatResources.ensureAgents(true).catch(() => {});
       MessagePlugin.success(t('agent.messages.updated'));
       emit('success');
       handleClose();

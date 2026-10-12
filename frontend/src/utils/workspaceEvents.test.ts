@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { collectWorkspaceFileChanges, collectWorkspaceRuns, completedWorkspacePanel, intentPanelTab, workspaceFileChange, workspaceIntent, workspaceToolSignal, lastWorkspaceSignal } from './workspaceEvents'
+import { collectWorkspaceFileChanges, collectWorkspaceRuns, completedWorkspacePanel, intentPanelTab, mergeWorkspaceFileChangesWithGitStatus, workspaceFileChange, workspaceIntent, workspaceToolSignal, lastWorkspaceSignal } from './workspaceEvents'
 import { resolveWorkspaceAsset, canPreviewSource, PREVIEW_CSP } from './workspacePreview'
 
 test('intent selects the right workspace surface without treating knowledge as coding', () => {
@@ -28,13 +28,13 @@ test('a finished turn opens the panel on its own result', () => {
   assert.equal(completedWorkspacePanel([]), null)
   assert.deepEqual(completedWorkspacePanel([signal('shell_exec', '', 'tests')]), { tab: 'tests', path: '' })
   assert.deepEqual(completedWorkspacePanel([signal('shell_exec')]), { tab: 'source', path: '' })
-  // The written page wins even when the agent ran tests afterwards.
-  assert.deepEqual(completedWorkspacePanel([signal('write_sandbox_file', 'index.html', 'preview'), signal('shell_exec', '', 'tests')]), { tab: 'preview', path: 'index.html' })
+  // Writes stay on Changes even for previewable files and later validation.
+  assert.deepEqual(completedWorkspacePanel([signal('write_sandbox_file', 'index.html', 'preview'), signal('shell_exec', '', 'tests')]), { tab: 'source', path: 'index.html' })
   assert.deepEqual(completedWorkspacePanel([signal('edit_sandbox_file', 'src/main.ts')]), { tab: 'source', path: 'src/main.ts' })
-  assert.deepEqual(completedWorkspacePanel([signal('write_sandbox_file', 'pages/about.html')]), { tab: 'preview', path: 'pages/about.html' })
-  assert.deepEqual(completedWorkspacePanel([signal('write_sandbox_file', 'notes.md')]), { tab: 'preview', path: 'notes.md' })
-  // Code that is not previewable shows the run that verified it.
-  assert.deepEqual(completedWorkspacePanel([signal('edit_sandbox_file', 'src/main.ts'), signal('shell_exec', '', 'tests')]), { tab: 'tests', path: '' })
+  assert.deepEqual(completedWorkspacePanel([signal('write_sandbox_file', 'pages/about.html')]), { tab: 'source', path: 'pages/about.html' })
+  assert.deepEqual(completedWorkspacePanel([signal('write_sandbox_file', 'notes.md')]), { tab: 'source', path: 'notes.md' })
+  // Background verification must not replace the code the user is reviewing.
+  assert.deepEqual(completedWorkspacePanel([signal('edit_sandbox_file', 'src/main.ts'), signal('shell_exec', '', 'tests')]), { tab: 'source', path: 'src/main.ts' })
   // An artifact outranks a file the same turn only read, previewable or not.
   assert.deepEqual(completedWorkspacePanel([signal('write_sandbox_file', 'app.ts'), signal('read_sandbox_file', 'README.md')]), { tab: 'source', path: 'app.ts' })
 })
@@ -160,4 +160,26 @@ test('replayed history unwraps nested tool_data so the diff survives a reload', 
   assert.deepEqual(changes.map((change) => change.path), ['/workspace/app.ts', '/workspace/new.ts'])
   assert.equal(changes[0].before, 'a')
   assert.equal(changes[1].type, 'added')
+})
+
+test('an exact git path is never taken by a sibling change that only suffix-matches it', () => {
+  // Both a.ts and src/a.ts are dirty. The log lists src/a.ts first, so a greedy
+  // single pass would hand it git's `a.ts` row (suffix match) and leave the
+  // exact a.ts change with the wrong counts.
+  const merged = mergeWorkspaceFileChangesWithGitStatus(
+    [
+      { id: 'l-src', path: '/workspace/src/a.ts', type: 'modified', addedLines: 0, removedLines: 0 },
+      { id: 'l-root', path: 'a.ts', type: 'modified', addedLines: 0, removedLines: 0 },
+    ],
+    [
+      { path: 'a.ts', status: 'modified', added: 1, removed: 0 },
+      { path: 'src/a.ts', status: 'modified', added: 9, removed: 4 },
+    ],
+  )
+  const byId = Object.fromEntries(merged.map((row) => [row.id, row]))
+  assert.equal(byId['l-root'].path, 'a.ts')
+  assert.equal(byId['l-root'].addedLines, 1)
+  assert.equal(byId['l-src'].path, 'src/a.ts')
+  assert.equal(byId['l-src'].addedLines, 9)
+  assert.equal(merged.length, 2)
 })

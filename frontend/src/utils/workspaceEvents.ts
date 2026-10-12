@@ -1,5 +1,6 @@
 import { buildShellExecView } from './shellExecResult'
 import { canPreviewSource } from './workspacePreview'
+import { workspaceCheckKind } from './workspaceChecks'
 
 export type WorkspaceIntent = 'chat' | 'build' | 'code' | 'test' | 'knowledge'
 export type WorkspaceTab = 'source' | 'preview' | 'tests'
@@ -35,13 +36,18 @@ const mutationTools = new Set(['write_sandbox_file', 'edit_sandbox_file'])
 export interface WorkspaceFileChange {
   turnId?: string
   path: string
-  type: 'added' | 'modified'
+  type: 'added' | 'modified' | 'deleted'
   /** Pre-write text; empty string for a brand-new file, undefined when the
    *  backend omitted the body because the file was too large to ship. */
   before?: string
   after?: string
   addedLines: number
   removedLines: number
+  /** Set by the live stream / change store; merged git rows carry one too. */
+  id?: string
+  timestamp?: number
+  /** True for a change from the live stream, false for history replay. */
+  live?: boolean
 }
 
 function toCount(value: unknown): number {
@@ -124,10 +130,107 @@ export function collectWorkspaceFileChanges(
         response_type: 'tool_result',
         data: { ...(event.tool_data || {}), tool_name: event.tool_name },
       })
-      if (change) out.push({ ...change, turnId: String(message.request_id || message.id || '') })
+      if (change) out.push({ id: '', timestamp: 0, live: false, ...change, turnId: String(message.request_id || message.id || '') })
     }
   }
   return out
+}
+
+/** One dirty file from the programming git-status endpoint. */
+export interface WorkspaceGitStatusFile {
+  path: string
+  old_path?: string
+  status: string
+  added: number
+  removed: number
+}
+
+function normalizeChangePath(path: string): string {
+  const normalized = path.replaceAll('\\', '/')
+  return normalized.startsWith('/') ? normalized.slice(1) : normalized
+}
+
+function changeMatchesGitPath(changePath: string, gitPath: string, exact: boolean): boolean {
+  const change = normalizeChangePath(changePath)
+  const target = normalizeChangePath(gitPath)
+  if (change === target) return true
+  return !exact && (change.endsWith(`/${target}`) || target.endsWith(`/${change}`))
+}
+
+/**
+ * Pair each recorded change with a git row. Exact paths are claimed first, so
+ * a loose suffix match can never take the row that a sibling change names
+ * exactly: with both `a.ts` and `src/a.ts` dirty, the log entry for `a.ts`
+ * must not be handed `src/a.ts` just because it appears earlier in the list.
+ */
+function pairChangesWithGitRows(
+  changes: WorkspaceFileChange[],
+  gitFiles: WorkspaceGitStatusFile[],
+): Map<number, number> {
+  const paired = new Map<number, number>()
+  const taken = new Set<number>()
+  for (const exact of [true, false]) {
+    changes.forEach((change, changeIndex) => {
+      if (paired.has(changeIndex)) return
+      const gitIndex = gitFiles.findIndex((gitFile, i) =>
+        !taken.has(i) && changeMatchesGitPath(change.path, gitFile.path, exact))
+      if (gitIndex < 0) return
+      paired.set(changeIndex, gitIndex)
+      taken.add(gitIndex)
+    })
+  }
+  return paired
+}
+
+/**
+ * Merge the session's recorded edits with the workspace's uncommitted changes.
+ *
+ * The conversation log answers "what did the agent write"; git answers "what
+ * is dirty right now". A commit leaves the first untouched but empties the
+ * second, so the panel is driven by git and the log only supplies the
+ * before/after bodies that let a row show an inline diff.
+ *
+ * Status/line counts follow git; a recorded entry keeps its before/after and
+ * id. Git rows the log never saw (a manual edit in the terminal) get a row
+ * without a body — the diff panel falls back to its "open the source" notice.
+ */
+export function mergeWorkspaceFileChangesWithGitStatus(
+  changes: WorkspaceFileChange[],
+  gitFiles: WorkspaceGitStatusFile[],
+): WorkspaceFileChange[] {
+  const pairs = pairChangesWithGitRows(changes, gitFiles)
+  const matched = new Set<number>(pairs.values())
+  const merged: WorkspaceFileChange[] = []
+  changes.forEach((change, changeIndex) => {
+    const index = pairs.get(changeIndex)
+    if (index === undefined) return
+    const gitFile = gitFiles[index]
+    merged.push({
+      ...change,
+      path: gitFile.path,
+      type: (gitFile.status === 'deleted' ? 'deleted'
+        : gitFile.status === 'added' || gitFile.status === 'untracked' ? 'added'
+        : 'modified') as WorkspaceFileChange['type'],
+      addedLines: gitFile.added,
+      removedLines: gitFile.removed,
+    })
+  })
+  for (const [i, gitFile] of gitFiles.entries()) {
+    if (matched.has(i)) continue
+    merged.push({
+      // A git-only row still needs the store's identity fields to render.
+      id: `git:${gitFile.path}`,
+      timestamp: 0,
+      live: false,
+      path: gitFile.path,
+      type: (gitFile.status === 'deleted' ? 'deleted'
+        : gitFile.status === 'added' || gitFile.status === 'untracked' ? 'added'
+        : 'modified') as WorkspaceFileChange['type'],
+      addedLines: gitFile.added,
+      removedLines: gitFile.removed,
+    })
+  }
+  return merged
 }
 
 /** Only real workspace tools drive the panel; ordinary answers/code snippets do not. */
@@ -142,7 +245,7 @@ export function workspaceToolSignal(chunk: { response_type?: string; data?: Reco
   }
   const result = data.tool_data || data.data || data
   const command = String(args.command || args.code || result.command || '')
-  const isTest = /(?:\b(?:test|pytest|vitest|jest|playwright|unittest)\b|go\s+test)/i.test(command)
+  const isTest = commandTools.has(name) && workspaceCheckKind(command) === 'tests'
   const rawPath = String(result.path || result.file_path || args.path || args.file_path || '')
   // A listing names a directory; the tree can only open files.
   const path = name === 'list_sandbox_files' ? '' : rawPath
@@ -156,12 +259,14 @@ export function workspaceToolSignal(chunk: { response_type?: string; data?: Reco
 
 /**
  * A finished turn opens the panel on its own result. Artifacts beat plain
- * reads, a previewable file beats everything, then a test run, then the source
- * view of the file the turn touched.
+ * reads. Writes keep the code view on its changes, including HTML/Markdown;
+ * preview is a manual choice after an edit. A turn that only runs tests can
+ * show the test results.
  */
 export function completedWorkspacePanel(signals: WorkspaceSignal[]): WorkspacePanelDecision | null {
   const written = signals.filter(signal => signal.path && artifactTools.has(signal.tool))
-  const files = written.length ? written : signals.filter(signal => signal.path)
+  if (written.length) return { tab: 'source', path: written[written.length - 1].path }
+  const files = signals.filter(signal => signal.path)
   const previewable = [...files].reverse().find(signal => canPreviewSource(signal.path))
   if (previewable) return { tab: 'preview', path: previewable.path }
   if (signals.some(signal => signal.tab === 'tests')) return { tab: 'tests', path: '' }
