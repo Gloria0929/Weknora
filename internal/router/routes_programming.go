@@ -26,6 +26,7 @@ func RegisterProgrammingRoutes(
 	getProgramming.GET("/git-remote", h.GitRemote)
 	getProgramming.GET("/git-branches", h.GitBranches)
 	getProgramming.GET("/git-history", h.GitHistory)
+	getProgramming.GET("/git-history-files", h.GitHistoryFiles)
 	putProgramming := g.apiKeyGroup(r.Group("/sessions/:id/programming", g.Viewer()), apiKeyChat(apiKeyFullAccess()))
 	putProgramming.PUT("/file", h.WriteFile)
 	postProgramming := g.apiKeyGroup(r.Group("/sessions/:session_id/programming", g.Viewer()), apiKeyChat(apiKeyFullAccess()))

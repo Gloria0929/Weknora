@@ -36,7 +36,6 @@
 
     <!-- 左侧品牌面板 -->
     <aside class="brand-panel">
-
       <div class="brand-panel__inner">
         <!-- 与 WorkspaceWelcome 同一套三条杠标志，替掉原先只存在于样式里的字标。 -->
         <div class="brand-lockup">
@@ -103,7 +102,7 @@
           </div>
 
           <header class="auth-card__header">
-            <div class="auth-card__eyebrow">WEKNORA WORKSPACE</div>
+            <div class="auth-card__eyebrow">WORKCORE WORKSPACE</div>
             <h2 class="auth-card__title">{{ $t("auth.login") }}</h2>
             <p class="auth-card__subtitle">{{ $t("auth.subtitle") }}</p>
           </header>
@@ -212,7 +211,7 @@
           </div>
 
           <header class="auth-card__header">
-            <div class="auth-card__eyebrow">WEKNORA WORKSPACE</div>
+            <div class="auth-card__eyebrow">WORKCORE WORKSPACE</div>
             <h2 class="auth-card__title">{{ $t("auth.createAccount") }}</h2>
             <p class="auth-card__subtitle">{{ $t("auth.subtitle") }}</p>
           </header>
@@ -297,7 +296,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, nextTick, onMounted, onBeforeUnmount, computed } from "vue";
+import {
+  ref,
+  reactive,
+  nextTick,
+  onMounted,
+  onBeforeUnmount,
+  computed,
+} from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { MessagePlugin } from "tdesign-vue-next";
 import { useRoleLabel } from "@/composables/useRoleLabel";
@@ -504,9 +510,7 @@ const persistLoginResponse = async (response: any, skipRedirect = false) => {
   await nextTick();
   if (skipRedirect) return;
   router.replace(
-    authStore.hasValidTenant
-      ? "/platform/creatChat"
-      : "/onboarding/workspace",
+    authStore.hasValidTenant ? "/platform/creatChat" : "/onboarding/workspace",
   );
 };
 

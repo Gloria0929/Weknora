@@ -108,7 +108,11 @@
           {{ t("workspace.retry") }}
         </button>
         <button
-          v-if="result?.status === 'start_failed' || result?.status === 'error'"
+          v-if="
+            result?.status === 'start_failed' ||
+            result?.status === 'error' ||
+            result?.status === 'unreachable'
+          "
           type="button"
           @click="emit('open-terminal')"
         >
@@ -124,6 +128,13 @@
     </div>
     <template v-else>
       <div class="url-stage" :class="{ mobile }">
+        <!-- allow-same-origin is deliberate, and safe here: the preview is served
+             from a per-preview random subdomain (wkpreview-<token>.<base>), and
+             resolveProjectPreviewUrl refuses any URL sharing the app's origin, so
+             the frame can only reach its own throwaway origin. Drop it and the
+             frame becomes opaque-origin, breaking localStorage, cookies and
+             same-origin requests in the generated app. Chrome warns about the
+             combination regardless of the frame's real origin. -->
         <iframe
           :key="frameKey"
           :src="currentUrl"
@@ -167,6 +178,7 @@ const statusMessage = computed(() =>
             paused: "workspace.autoPreviewPaused",
             unsupported: "workspace.autoPreviewUnsupported",
             setup_required: "workspace.autoPreviewSetup",
+            unreachable: "workspace.autoPreviewUnreachable",
             start_failed: "workspace.previewStartFailed",
             starting: "workspace.autoPreviewDetectingHint",
             error: "workspace.autoPreviewRetrying",

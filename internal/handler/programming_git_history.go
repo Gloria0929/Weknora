@@ -21,6 +21,7 @@ type gitHistoryEntry struct {
 	Parents     []string `json:"parents"`
 	Refs        string   `json:"refs"`
 	Status      string   `json:"status"`
+	CanReset    bool     `json:"can_reset"`
 }
 
 func validGitHistorySHA(value string) bool {
@@ -119,32 +120,58 @@ func (h *ProgrammingHandler) GitHistory(c *gin.Context) {
 	if hasMore {
 		entries = entries[:limit]
 	}
-	if upstream != "" && len(entries) > 0 {
-		// Classify only this bounded page, rather than materializing the
-		// repository's entire reachable history on every refresh.
-		git := "git -C " + shellQuotePOSIX(workdir)
-		statusArgs := "log --format=%H " + pageArgs + " | while IFS= read -r sha; do local_code=0; remote_code=0; " +
-			git + " merge-base --is-ancestor \"$sha\" " + shellQuotePOSIX(head) + " || local_code=$?; " +
-			git + " merge-base --is-ancestor \"$sha\" " + shellQuotePOSIX(upstream) + " || remote_code=$?; " +
-			`status=unknown; if [ "$local_code" = 0 ] && [ "$remote_code" = 0 ]; then status=synced; ` +
-			`elif [ "$local_code" = 0 ] && [ "$remote_code" = 1 ]; then status=outgoing; ` +
-			`elif [ "$local_code" = 1 ] && [ "$remote_code" = 0 ]; then status=incoming; fi; ` +
-			`printf '%s\t%s\n' "$sha" "$status"; done`
-		statusOut, _, statusCode, statusErr := h.execGit(ctx, sessionID, workdir, statusArgs, 20*time.Second)
+	// Eligibility is calculated from this branch's actual ancestry. History
+	// includes incoming commits too; matching the upstream SHA alone does not
+	// make one a valid reset target. A stale page or detached HEAD has no actions.
+	git := "git -C " + shellQuotePOSIX(workdir)
+	liveOut, _, liveCode, liveErr := h.execGit(ctx, sessionID, workdir,
+		"symbolic-ref --quiet HEAD && "+git+" rev-parse --verify HEAD", 10*time.Second)
+	live := strings.Fields(liveOut)
+	resetBranch := liveErr == nil && liveCode == 0 && len(live) == 2 && live[1] == head && strings.HasPrefix(live[0], "refs/heads/")
+	if len(entries) > 0 {
+		statusArgs := "log --format=%H " + pageArgs + " | while IFS= read -r sha; do local_code=0; remote_code=1; " +
+			git + " merge-base --is-ancestor \"$sha\" " + shellQuotePOSIX(head) + " || local_code=$?; "
+		if upstream != "" {
+			statusArgs += "remote_code=0; " + git + " merge-base --is-ancestor \"$sha\" " + shellQuotePOSIX(upstream) + " || remote_code=$?; " +
+				`status=unknown; if [ "$local_code" = 0 ] && [ "$remote_code" = 0 ]; then status=synced; ` +
+				`elif [ "$local_code" = 0 ] && [ "$remote_code" = 1 ]; then status=outgoing; ` +
+				`elif [ "$local_code" = 1 ] && [ "$remote_code" = 0 ]; then status=incoming; fi; `
+		} else {
+			statusArgs += "status=unknown; "
+		}
+		statusArgs += "can_reset=false; "
+		if resetBranch {
+			statusArgs += `if [ "$local_code" = 0 ] && [ "$sha" != ` + shellQuotePOSIX(head) + ` ]; then `
+			if upstream == "" {
+				statusArgs += "can_reset=true; "
+			} else {
+				statusArgs += "dropped=$(" + git + " rev-list --count " + shellQuotePOSIX(head) + " ^\"$sha\") && " +
+					"local_only=$(" + git + " rev-list --count " + shellQuotePOSIX(head) + " ^\"$sha\" ^" + shellQuotePOSIX(upstream) + ") && " +
+					`[ "$dropped" = "$local_only" ] && can_reset=true; `
+			}
+			statusArgs += "fi; "
+		}
+		statusArgs += `printf '%s\t%s\t%s\n' "$sha" "$status" "$can_reset"; done`
+		statusOut, _, statusCode, statusErr := h.execGit(ctx, sessionID, workdir, statusArgs, 30*time.Second)
 		if statusErr == nil && statusCode == 0 {
-			statuses := make(map[string]string)
+			type eligibility struct {
+				status string
+				reset  bool
+			}
+			bySHA := make(map[string]eligibility)
 			for _, line := range strings.Split(statusOut, "\n") {
-				sha, status, ok := strings.Cut(line, "\t")
-				if ok {
-					statuses[sha] = status
+				fields := strings.Split(line, "\t")
+				if len(fields) == 3 {
+					bySHA[fields[0]] = eligibility{fields[1], fields[2] == "true"}
 				}
 			}
 			for i := range entries {
-				if status := statuses[entries[i].SHA]; status != "" {
-					entries[i].Status = status
+				if data, ok := bySHA[entries[i].SHA]; ok {
+					entries[i].Status, entries[i].CanReset = data.status, data.reset
 				}
 			}
 		}
 	}
+
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"commits": entries, "head": head, "upstream": upstream, "has_more": hasMore}})
 }

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -41,9 +42,15 @@ const gitPushCredentialHelper = `!f() {
 // Strip transport tracing from user-facing errors while preserving Git's
 // fatal/error/remote output. Detect status codes before filtering these lines.
 var gitPushTraceLinePattern = regexp.MustCompile(`^\d{2}:\d{2}:\d{2}\.\d+\s+http\.c:\d+\s+(?:==|=>|<=) `)
+
+// Git colours remote errors with ANSI escapes; the panel renders plain text, so
+// the escapes survive as literal "[31m" noise.
+var gitPushANSIPattern = regexp.MustCompile("\x1b\\[[0-9;]*[A-Za-z]")
+
 var gitPushHTTPAuthPattern = regexp.MustCompile(`(?i)HTTP/\S+\s+(?:401|403)\b`)
 
 func gitPushFailureDetail(raw string) string {
+	raw = gitPushANSIPattern.ReplaceAllString(raw, "")
 	lines := make([]string, 0)
 	for _, line := range strings.Split(raw, "\n") {
 		if !gitPushTraceLinePattern.MatchString(line) {
@@ -51,6 +58,32 @@ func gitPushFailureDetail(raw string) string {
 		}
 	}
 	return strings.TrimSpace(strings.Join(lines, "\n"))
+}
+
+// gitPushAuthSummary reduces a refused-credential transcript to the server's own
+// reason. The full output is a multi-line log (remote prefix, session id, a
+// fatal line repeating the URL) while the dialog already states that
+// authentication failed, so only the line explaining why is worth showing.
+func gitPushAuthSummary(detail string) string {
+	fatal := ""
+	for _, line := range strings.Split(gitPushANSIPattern.ReplaceAllString(detail, ""), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		lower := strings.ToLower(line)
+		if strings.HasPrefix(lower, "fatal:") {
+			// The fatal line only names the URL, so keep it as a fallback.
+			fatal = line
+			continue
+		}
+		for _, marker := range []string{"incorrect", "invalid", "denied", "unauthorized", "not authorized", "permission"} {
+			if strings.Contains(lower, marker) {
+				return line
+			}
+		}
+	}
+	return fatal
 }
 
 // gitPushAuthFailed reports whether the push failed on credentials: either the
@@ -289,6 +322,13 @@ func (h *ProgrammingHandler) GitPush(c *gin.Context) {
 			u.User, u.RawQuery, u.Fragment = nil, "", ""
 			return u.String()
 		})
+		// A refused credential prints a whole transcript; the dialog only needs
+		// the server's own reason, since it already says authentication failed.
+		if authFailed {
+			if summary := gitPushAuthSummary(detail); summary != "" {
+				detail = summary
+			}
+		}
 		if detail == "" {
 			if authFailed {
 				detail = "remote authentication failed"
@@ -298,6 +338,13 @@ func (h *ProgrammingHandler) GitPush(c *gin.Context) {
 		}
 		c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"pushed": false, "detail": detail, "auth_failed": authFailed}})
 		return
+	}
+	// The accepted account is the best author name available for this repository.
+	// Recording it saves the user from configuring an identity before the next
+	// commit; an existing name is never overwritten (best-effort, a failure here
+	// must not turn a successful push into an error).
+	if mode == "http" && username != "" {
+		h.recordRepoAuthorName(ctx, sessionID, workdir, username)
 	}
 	if setUpstream {
 		// Using a literal URL above must not turn branch.remote into that URL:
@@ -331,4 +378,17 @@ func (h *ProgrammingHandler) GitPush(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"pushed": true}})
+}
+
+// recordRepoAuthorName stores the account that just authenticated a push as the
+// repository's author name, so the next commit does not ask for an identity
+// again. Only an empty config is filled: a name configured deliberately through
+// the identity dialog is never overwritten. Errors are ignored — the push has
+// already succeeded and must still be reported as such.
+func (h *ProgrammingHandler) recordRepoAuthorName(ctx context.Context, sessionID, workdir, name string) {
+	current, _, code, err := h.execGit(ctx, sessionID, workdir, "config --local --get user.name", 10*time.Second)
+	if err != nil || (code == 0 && strings.TrimSpace(current) != "") {
+		return
+	}
+	_, _, _, _ = h.execGit(ctx, sessionID, workdir, "config --local user.name "+shellQuotePOSIX(name), 10*time.Second)
 }

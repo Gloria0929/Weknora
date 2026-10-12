@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -76,5 +77,50 @@ func TestGitPushFailureDetailDropsTransportTrace(t *testing.T) {
 	}
 	if want := "remote: Unauthorized\nfatal: Authentication failed for 'https://gitee.com/team/test-work.git/'"; detail != want {
 		t.Fatalf("detail = %q, want %q", detail, want)
+	}
+}
+
+// The panel renders plain text, so ANSI colours must not survive as "[31m".
+func TestGitPushFailureDetailStripsANSI(t *testing.T) {
+	raw := "remote: \x1b[31mIncorrect username or password (access token)\x1b[0m"
+	if got := gitPushFailureDetail(raw); got != "remote: Incorrect username or password (access token)" {
+		t.Fatalf("detail = %q", got)
+	}
+}
+
+// A refused credential prints a transcript; only the server's reason is useful
+// next to the dialog's own "authentication failed" sentence.
+func TestGitPushAuthSummaryKeepsOnlyServerReason(t *testing.T) {
+	raw := "remote: \x1b[31m[session-864bf9b7] [redacted]: Incorrect username or password (access token) \x1b[0m\n" +
+		"fatal: Authentication failed for 'https://gitee.com/dream0929/test-work.git/'"
+	want := "remote: [session-864bf9b7] [redacted]: Incorrect username or password (access token)"
+	if got := gitPushAuthSummary(raw); got != want {
+		t.Fatalf("summary = %q, want %q", got, want)
+	}
+}
+
+// With no explanatory line the fatal line is still better than nothing.
+func TestGitPushAuthSummaryFallsBackToFatalLine(t *testing.T) {
+	raw := "fatal: Authentication failed for 'https://gitee.com/o/r.git/'"
+	if got := gitPushAuthSummary(raw); got != raw {
+		t.Fatalf("summary = %q, want the fatal line", got)
+	}
+}
+
+// A successful authenticated push records the account as the repository author,
+// so the next commit does not ask for an identity — without ever replacing a
+// name the user configured on purpose.
+func TestProgrammingGitPushRecordsAuthorName(t *testing.T) {
+	h, m := newProgrammingGitTest(t)
+	programmingGitRun(t, m, "config", "--unset", "user.name")
+
+	h.recordRepoAuthorName(context.Background(), "git-test", m.root, "dream0929")
+	if got := strings.TrimSpace(programmingGitRun(t, m, "config", "--local", "--get", "user.name")); got != "dream0929" {
+		t.Fatalf("user.name = %q, want dream0929", got)
+	}
+
+	h.recordRepoAuthorName(context.Background(), "git-test", m.root, "someone-else")
+	if got := strings.TrimSpace(programmingGitRun(t, m, "config", "--local", "--get", "user.name")); got != "dream0929" {
+		t.Fatalf("existing user.name was overwritten: %q", got)
 	}
 }

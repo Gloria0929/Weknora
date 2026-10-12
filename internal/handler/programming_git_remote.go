@@ -5,6 +5,23 @@ import (
 	"strings"
 )
 
+// Read cached refs in the same sandbox invocation as file status. Initial
+// rendering must not depend on a second request or an external fetch.
+const gitCachedRemoteCommandArgs = "branch=$(git " + gitCurrentBranchArgs + " 2>/dev/null) || branch=; " +
+	"upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null) || upstream=; " +
+	"counts=$(git rev-list --left-right --count HEAD...'@{u}' 2>/dev/null) || counts='0 0'; " +
+	"printf '%s\\n%s\\n%s\\n' \"$branch\" \"$upstream\" \"$counts\""
+
+func parseGitCachedRemote(raw string) gitRemoteReport {
+	// A preceding -z record can leave one extra NUL at the block boundary.
+	lines := strings.Split(strings.TrimLeft(raw, "\x00"), "\n")
+	if len(lines) < 3 || lines[0] == "" {
+		return gitRemoteReport{}
+	}
+	ahead, behind := parseGitAheadBehind(lines[2])
+	return gitRemoteReport{Available: true, Branch: lines[0], Upstream: lines[1], Ahead: ahead, Behind: behind}
+}
+
 // gitIncomingEntry is one commit the local branch is behind its upstream:
 // what `git log HEAD..@{u}` reports, trimmed to what the panel renders.
 type gitIncomingEntry struct {

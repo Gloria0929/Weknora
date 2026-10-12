@@ -669,23 +669,28 @@ func (h *ProgrammingHandler) GitStatus(c *gin.Context) {
 		// why `ls-files --others` names them and `diff --no-index /dev/null <path>`
 		// counts them — that last command exits 1 whenever it finds a difference,
 		// so its output is read regardless of exit code.
-		combined, _, code, err := h.execGit(ctx, sessionID, workdir, gitStatusCommandArgs, 15*time.Second)
+		args := gitStatusCommandArgs + " && printf '\\000\\000' && { " + gitCachedRemoteCommandArgs + "; }"
+		combined, _, code, err := h.execGit(ctx, sessionID, workdir, args, 15*time.Second)
 		if err != nil || code != 0 {
 			// A repo that vanished or broke between discovery and status is
 			// skipped, not fatal to the others.
 			continue
 		}
-		parts := strings.SplitN(combined, gitStatusBlockSeparator, 2)
+		parts := strings.SplitN(combined, gitStatusBlockSeparator, 3)
 		numstat := ""
 		if len(parts) > 1 {
 			numstat = parts[1]
 		}
 		report := buildGitStatusReport(parts[0], numstat)
-		repoReports = append(repoReports, gin.H{
+		row := gin.H{
 			"root":  repo.RelRoot,
 			"name":  repo.Name,
 			"files": gitStatusReportJSON(report)["files"],
-		})
+		}
+		if len(parts) > 2 {
+			row["remote"] = gitRemoteReportJSON(parseGitCachedRemote(parts[2]))
+		}
+		repoReports = append(repoReports, row)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{
@@ -920,21 +925,19 @@ func (h *ProgrammingHandler) GitRemote(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": gitRemoteReportJSON(report)})
 }
 
-// GitPull runs the manual pull action in the changes panel's remote strip. It
-// is deliberately `git pull --ff-only`: a branch that has diverged from its
-// upstream is refused with git's own message rather than merged or rebased
-// into a state the user did not ask for, leaving conflict resolution to their
-// terminal. Like GitCommit, only this fixed command runs — never free-form
-// shell from this endpoint.
+// GitPull normally fast-forwards only. Explicit realignment saves local
+// committed edits, moves to the fetched upstream and applies the edits back
+// with a three-way merge; true conflicts remain visible in the working tree.
 func (h *ProgrammingHandler) GitPull(c *gin.Context) {
 	ctx := c.Request.Context()
 	if _, ok := h.loadOwnedSession(c); !ok {
 		return
 	}
 	var req struct {
-		Repo string `json:"repo"`
+		Repo    string `json:"repo"`
+		Realign bool   `json:"realign"`
 	}
-	// An empty body is valid (single-repo workspace); only a malformed body 400s.
+	// An empty body is valid; a malformed body must be rejected.
 	if c.Request.Body != nil {
 		if err := json.NewDecoder(c.Request.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
 			c.Error(apperrors.NewBadRequestError("invalid pull request"))
@@ -953,6 +956,10 @@ func (h *ProgrammingHandler) GitPull(c *gin.Context) {
 	workdir, err := h.resolveGitRepoWorkdir(ctx, sessionID, layout, store, req.Repo)
 	if err != nil {
 		c.Error(apperrors.NewBadRequestError(err.Error()))
+		return
+	}
+	if req.Realign {
+		c.JSON(http.StatusOK, gin.H{"success": true, "data": h.realignGitBranch(ctx, sessionID, workdir)})
 		return
 	}
 	stdout, stderr, exitCode, execErr := h.execGit(ctx, sessionID, workdir, "pull --ff-only", 60*time.Second)

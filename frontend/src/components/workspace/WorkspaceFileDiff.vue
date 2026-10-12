@@ -22,6 +22,7 @@
         <div v-if="section.skipped" class="file-diff__gap">{{ t('workspace.unchangedLines', { count: section.skipped }) }}</div>
         <div v-for="(line, lineIndex) in section.lines" :key="lineIndex" class="diff-row" :class="`is-${line.type}`">
           <span class="diff-gutter" aria-hidden="true">{{ line.type === 'del' ? line.oldNumber : line.newNumber }}</span>
+          <span class="diff-sign" aria-hidden="true">{{ line.type === 'add' ? '+' : line.type === 'del' ? '-' : '' }}</span>
           <code class="diff-code" v-html="line.highlighted || '&#8203;'" />
         </div>
       </template>
@@ -100,12 +101,15 @@ const trailingLines = computed(() => {
 .file-diff__actions button { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; color: var(--td-text-color-secondary); font: inherit; font-size: 12px; cursor: pointer; padding: 4px; }
 .file-diff__actions button:hover { color: var(--td-text-color-primary); }
 .file-diff__gap, .file-diff__notice { margin: 4px 0; padding: 9px 12px; border-radius: 8px; background: var(--td-bg-color-secondarycontainer); color: var(--td-text-color-secondary); font-size: 12px; }
-.diff-row { display: grid; grid-template-columns: 4em minmax(0, 1fr); font: 13px/1.65 var(--app-font-family-mono, monospace); border-left: 2px solid transparent; }
+.diff-row { display: grid; grid-template-columns: 4em 1.4em minmax(0, 1fr); font: 13px/1.65 var(--app-font-family-mono, monospace); border-left: 2px solid transparent; }
 .diff-row.is-add { background: color-mix(in srgb, var(--diff-add) 11%, transparent); border-left-color: var(--diff-add); }
 .diff-row.is-del { background: color-mix(in srgb, var(--diff-del) 11%, transparent); border-left-color: var(--diff-del); }
 .diff-gutter { padding: 0 8px 0 2px; text-align: right; color: var(--td-text-color-placeholder); user-select: none; }
 .is-add .diff-gutter { color: var(--diff-add); }
 .is-del .diff-gutter { color: var(--diff-del); }
+.diff-sign { text-align: center; font-weight: 600; user-select: none; }
+.is-add .diff-sign { color: var(--diff-add); }
+.is-del .diff-sign { color: var(--diff-del); }
 .diff-code { display: block; min-width: 0; padding: 0 8px; border-left: 1px solid var(--td-component-stroke); font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 2; }
 :global(:root[theme-mode="dark"] .file-diff) { --diff-add: #63c984; --diff-del: #ff8c86; }
 .diff-code {

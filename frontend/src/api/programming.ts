@@ -54,6 +54,8 @@ export interface ProgrammingGitRepo {
   root: string
   name: string
   files: ProgrammingGitStatusFile[]
+  /** Cached local branch/upstream metadata; does not wait for network fetch. */
+  remote?: ProgrammingGitRemote
 }
 
 export interface ProgrammingGitStatus {
@@ -133,6 +135,8 @@ export interface ProgrammingGitHistoryCommit {
   parents: string[]
   refs: string
   status: 'outgoing' | 'incoming' | 'synced' | 'unknown'
+  /** Verified against the current branch; incoming/stale/published targets are excluded. */
+  can_reset?: boolean
 }
 
 export interface ProgrammingGitHistory {
@@ -154,6 +158,26 @@ export function getProgrammingGitHistory(sessionId: string, repo = '', page: { s
   return get<{ success: boolean; data: ProgrammingGitHistory }>(`${base(sessionId)}/git-history?${params}`, { timeout: 75_000 })
 }
 
+export interface ProgrammingGitHistoryFile {
+  path: string
+  old_path?: string
+  status: string
+}
+
+export interface ProgrammingGitHistoryFiles {
+  files: ProgrammingGitHistoryFile[]
+  parent: string
+  patch?: string
+  patch_truncated?: boolean
+}
+
+export function getProgrammingGitHistoryFiles(sessionId: string, commit: string, repo = '', path?: string) {
+  const params = new URLSearchParams({ commit })
+  if (repo) params.set('repo', repo)
+  if (path !== undefined) params.set('path', path)
+  return get<{ success: boolean; data: ProgrammingGitHistoryFiles }>(`${base(sessionId)}/git-history-files?${params}`, { timeout: 75_000 })
+}
+
 export interface ProgrammingGitActionResult {
   switched?: boolean
   discarded?: boolean
@@ -172,6 +196,7 @@ export function discardProgrammingChanges(sessionId: string, repo = '') {
 
 export interface ProgrammingGitResetResult {
   reset: boolean
+  reason?: 'not_on_branch' | 'already_at_commit' | 'published_history' | 'dirty_tree' | 'git_error'
   /** git's own stderr/stdout when the reset was refused (published commit, dirty tree). */
   detail?: string
 }
@@ -214,10 +239,18 @@ export interface ProgrammingGitPullResult {
   pulled: boolean
   /** git's own stderr/stdout on a refusal (diverged branch, no upstream, offline). */
   detail?: string
+  /** True when the local commits were unwound first to let the pull fast-forward. */
+  aligned?: boolean
+  conflicts?: boolean
+  restore_failed?: boolean
+  rollback_failed?: boolean
+  backup_ref?: string
+  stash_ref?: string
 }
 
-export function pullProgrammingChanges(sessionId: string, repo = '') {
-  return post<{ success: boolean; data: ProgrammingGitPullResult }>(`${base(sessionId)}/git-pull`, { repo }, { timeout: 70_000 })
+/** realign unwinds local commits (keeping their changes) so a diverged branch can pull. */
+export function pullProgrammingChanges(sessionId: string, repo = '', realign = false) {
+  return post<{ success: boolean; data: ProgrammingGitPullResult }>(`${base(sessionId)}/git-pull`, { repo, realign }, { timeout: realign ? 240_000 : 70_000 })
 }
 
 export interface ProgrammingGitPushCredentials {
@@ -266,7 +299,7 @@ export function runProgrammingCommand(sessionId: string, data: { command: string
 }
 
 export interface ProgrammingWebPreview {
-  status: 'ready' | 'not_running' | 'starting' | 'start_failed' | 'paused' | 'unsupported' | 'setup_required' | 'error'
+  status: 'ready' | 'not_running' | 'starting' | 'start_failed' | 'paused' | 'unsupported' | 'setup_required' | 'unreachable' | 'error'
   url?: string
   preview_id?: string
   port?: number

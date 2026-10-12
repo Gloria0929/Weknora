@@ -76,6 +76,19 @@ func (s *previewLeaseStore) put(ctx context.Context, token string, lease preview
 	return nil
 }
 
+// drop forgets a lease whose relay stopped answering, so the next discovery
+// mints a fresh one instead of leaving the panel pointed at a frame that only
+// ever returns 502.
+func (s *previewLeaseStore) drop(ctx context.Context, token string) {
+	if s.redis != nil {
+		s.redis.Del(ctx, "weknora:web-preview:"+token)
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.leases, token)
+}
+
 // Install before application CORS/auth/routes: a preview origin must NEVER
 // fall through to the authenticated application, including on an invalid lease.
 func (h *ProgrammingHandler) WebPreviewMiddleware(client *redis.Client) gin.HandlerFunc {
@@ -124,6 +137,13 @@ func (h *ProgrammingHandler) WebPreviewMiddleware(client *redis.Client) gin.Hand
 				return h.workspace.RoundTripWebPreview(ctx, lease.SessionID, lease.SandboxID, lease.RelayPort, req)
 			}),
 			ModifyResponse: func(response *http.Response) error {
+				// Gateways can return an HTTP error without a transport error.
+				// Retire that URL so the next successful discovery navigates the
+				// iframe again, including after a JS module failed to load.
+				switch response.StatusCode {
+				case http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+					h.previewLeases.drop(ctx, match[1])
+				}
 				response.Header.Del(sandbox.InboundTokenHeader)
 				response.Header.Del("X-WeKnora-Preview-Relay")
 				response.Header.Del("X-Frame-Options")
@@ -147,6 +167,12 @@ func (h *ProgrammingHandler) WebPreviewMiddleware(client *redis.Client) gin.Hand
 				return nil
 			},
 			ErrorHandler: func(w http.ResponseWriter, _ *http.Request, _ error) {
+				// The relay inside the sandbox stopped answering, or it can no
+				// longer reach the project's port. Dropping the lease lets the
+				// next poll mint a fresh URL and, when the project is really
+				// gone, report that instead — so the panel returns to a state the
+				// user can act on rather than a frame that only ever shows 502.
+				h.previewLeases.drop(ctx, match[1])
 				http.Error(w, "Project preview is unavailable. Reopen Web preview to reconnect.", http.StatusBadGateway)
 			},
 		}
@@ -161,6 +187,11 @@ func (f previewRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) 
 
 // Public base routes *.base to this application's HTTP listener. Development
 // uses *.localhost on the API listener, requiring no DNS or desktop sandbox.
+// A literal IP origin is pointed at itself through nip.io's wildcard DNS, so the
+// base follows whatever address the browser actually used: a pinned address in
+// WEKNORA_PREVIEW_BASE_URL goes stale the moment the host moves, and the only
+// symptom is a blank preview frame. A named origin still needs that variable,
+// since its own wildcard DNS and certificate are not ours to assume.
 func previewPublicBase(request *http.Request) (*url.URL, error) {
 	raw := strings.TrimSpace(os.Getenv("WEKNORA_PREVIEW_BASE_URL"))
 	if raw != "" {
@@ -172,14 +203,47 @@ func previewPublicBase(request *http.Request) (*url.URL, error) {
 		return u, nil
 	}
 	origin, err := url.Parse(request.Header.Get("Origin"))
-	if err != nil || origin == nil || (origin.Hostname() != "localhost" && origin.Hostname() != "127.0.0.1" && origin.Hostname() != "::1") || origin.Scheme != "http" {
+	if err != nil || origin == nil || origin.Host == "" || origin.User != nil || (origin.Scheme != "http" && origin.Scheme != "https") {
 		return nil, errors.New("preview domain required")
 	}
+	// Hostname from the origin, port from this request, because the two sources
+	// answer different questions:
+	//
+	//   * The hostname must be the address the browser actually used. A dev
+	//     server proxies the API to the backend and rewrites Host, so the request
+	//     host reads "localhost" even for a browser on another machine — and
+	//     *.localhost resolves to that browser's own loopback, which refuses the
+	//     connection. The origin names the machine the page was loaded from.
+	//   * The port must be the backend's, since the preview relay lives on this
+	//     listener. In development the page is served by another port entirely,
+	//     so an origin-derived port would point the frame at the dev server.
+	//
+	// The scheme follows the origin, which is what the browser enforces.
+	hostname := origin.Hostname()
 	_, port, err := net.SplitHostPort(request.Host)
 	if err != nil {
-		port = "80"
+		port = ""
 	}
-	return &url.URL{Scheme: "http", Host: net.JoinHostPort("localhost", port)}, nil
+	if port == "" {
+		port = "80"
+		if origin.Scheme == "https" {
+			port = "443"
+		}
+	}
+	// Loopback needs no DNS: *.localhost already resolves.
+	if hostname == "localhost" || hostname == "127.0.0.1" || hostname == "::1" {
+		return &url.URL{Scheme: origin.Scheme, Host: net.JoinHostPort("localhost", port)}, nil
+	}
+	// Any other literal address was reachable enough for the browser to load the
+	// app from it, so preview subdomains point at that same address.
+	ip := net.ParseIP(hostname)
+	if ip == nil || ip.To4() == nil {
+		return nil, errors.New("preview domain required")
+	}
+	return &url.URL{
+		Scheme: origin.Scheme,
+		Host:   net.JoinHostPort(strings.ReplaceAll(ip.String(), ".", "-")+".nip.io", port),
+	}, nil
 }
 
 func (h *ProgrammingHandler) DiscoverWebPreview(c *gin.Context) {

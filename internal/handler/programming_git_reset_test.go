@@ -162,3 +162,32 @@ func TestProgrammingGitResetRejectsMalformedCommit(t *testing.T) {
 		t.Fatalf("non-object-id commit must be rejected before running git: %v", c.Errors)
 	}
 }
+
+// Reverting to the upstream commit itself drops only unpushed commits, which is
+// safe — but the panel must offer that target, otherwise a branch with a single
+// unpushed commit has no revertable entry at all.
+func TestProgrammingGitResetToUpstreamDropsOnlyLocalCommits(t *testing.T) {
+	h, m := newProgrammingGitTest(t)
+	origin := t.TempDir()
+	programmingGitRun(t, m, "init", "--bare", "-q", origin)
+	programmingGitWrite(t, m, "app.txt", "first\n")
+	programmingGitRun(t, m, "add", "-A")
+	programmingGitRun(t, m, "commit", "-q", "-m", "pushed commit")
+	published := strings.TrimSpace(programmingGitRun(t, m, "rev-parse", "HEAD"))
+	programmingGitRun(t, m, "remote", "add", "origin", origin)
+	programmingGitRun(t, m, "push", "-q", "-u", "origin", "main")
+	programmingGitWrite(t, m, "app.txt", "second\n")
+	programmingGitRun(t, m, "add", "-A")
+	programmingGitRun(t, m, "commit", "-q", "-m", "local commit")
+
+	reset, detail := resetTo(t, h, published)
+	if !reset {
+		t.Fatalf("resetting to the upstream commit was refused: %s", detail)
+	}
+	if got := strings.TrimSpace(programmingGitRun(t, m, "rev-parse", "HEAD")); got != published {
+		t.Fatalf("HEAD = %s, want %s", got, published)
+	}
+	if content, err := os.ReadFile(filepath.Join(m.root, "app.txt")); err != nil || string(content) != "second\n" {
+		t.Fatalf("dropped change was lost: %q, %v", content, err)
+	}
+}

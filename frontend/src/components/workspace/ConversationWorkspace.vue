@@ -159,6 +159,18 @@
               <t-icon name="refresh" />
             </button>
           </div>
+          <div
+            v-if="showFileDiff && gitStatusLoading && gitRepos === null"
+            class="remote-strip remote-strip--loading"
+            role="status"
+            :aria-label="t('workspace.gitMetadataLoading')"
+          >
+            <div class="remote-strip__row">
+              <span class="remote-strip__placeholder" aria-hidden="true"><t-icon name="git-branch" size="14px" /></span>
+              <span class="remote-strip__loading-text">{{ t('workspace.gitMetadataLoading') }}</span>
+              <t-icon name="loading" size="13px" class="spinning" />
+            </div>
+          </div>
           <div v-if="error" class="workspace-notice" role="alert">
             <t-icon name="info-circle" /><span>{{ error }}</span
             ><button type="button" @click="refresh">
@@ -323,7 +335,7 @@
                     <t-icon name="history" size="13px" />
                   </button>
                   <button
-                    v-if="pullVisible(repo.root)"
+                    v-if="pullVisible(repo.root) && !diverged(repo.root)"
                     type="button"
                     class="remote-strip__action remote-strip__pull"
                     :disabled="
@@ -343,6 +355,29 @@
                       pullPending[repo.root]
                         ? t("workspace.pulling")
                         : t("workspace.pull")
+                    }}
+                  </button>
+                  <button
+                    v-else-if="diverged(repo.root)"
+                    type="button"
+                    class="remote-strip__action remote-strip__pull"
+                    :title="t('workspace.pullAlignHint')"
+                    :disabled="
+                      pullPending[repo.root] ||
+                      pushPending[repo.root] ||
+                      commitPending[repo.root] ||
+                      branchSwitching[repo.root]
+                    "
+                    @click="submitPull(repo.root, true)"
+                  >
+                    <t-icon
+                      :name="pullPending[repo.root] ? 'loading' : 'download'"
+                      size="13px"
+                    />
+                    {{
+                      pullPending[repo.root]
+                        ? t("workspace.pulling")
+                        : t("workspace.pullAlign")
                     }}
                   </button>
                   <button
@@ -431,6 +466,13 @@
                   </li>
                 </ul>
               </div>
+              <div v-if="!remoteVisible(repo.root) && remoteLoading[repo.root]" class="remote-strip remote-strip--loading" role="status">
+                <div class="remote-strip__row">
+                  <span class="remote-strip__placeholder" aria-hidden="true"><t-icon name="git-branch" size="14px" /></span>
+                  <span class="remote-strip__loading-text">{{ t('workspace.gitMetadataLoading') }}</span>
+                  <t-icon name="loading" size="13px" class="spinning" />
+                </div>
+              </div>
               <p
                 v-if="remoteErrors[repo.root]"
                 class="remote-strip__error"
@@ -463,6 +505,9 @@
               </p>
               <WorkspaceGitHistory
                 v-if="historyOpen[repo.root]"
+                :session-id="sessionId"
+                :repo="repo.root"
+                :load-files="api.gitHistoryFiles ? (commit: string, path?: string) => api.gitHistoryFiles!(sessionId, commit, repo.root, path) : undefined"
                 :report="gitHistories[repo.root]"
                 :loading="historyLoading[repo.root]"
                 :error="historyErrors[repo.root]"
@@ -470,7 +515,10 @@
                 @load-more="refreshGitHistory(repo.root, true)"
                 @revert="askRevert(repo.root, $event)"
               />
-              <div v-if="commitVisible(repo.root)" class="commit-box">
+              <div
+                v-if="commitVisible(repo.root) && !historyOpen[repo.root]"
+                class="commit-box"
+              >
                 <textarea
                   v-model="commitMessages[repo.root]"
                   class="commit-box__input"
@@ -494,7 +542,16 @@
                       :disabled="commitDisabled(repo.root)"
                       @click="submitCommit(repo.root)"
                     >
-                      {{ t("workspace.commitLocalOnly") }}
+                      <t-icon
+                        v-if="commitLocalPending(repo.root)"
+                        name="loading"
+                        size="14px"
+                      />
+                      {{
+                        commitLocalPending(repo.root)
+                          ? t("workspace.committing")
+                          : t("workspace.commitLocalOnly")
+                      }}
                     </button>
                     <button
                       type="button"
@@ -504,17 +561,15 @@
                       @click="submitCommit(repo.root, true)"
                     >
                       <t-icon
-                        :name="commitPending[repo.root] ? 'loading' : 'check'"
+                        :name="commitPushPending(repo.root) ? 'loading' : 'check'"
                         size="14px"
                       />
                       {{
-                        commitPending[repo.root]
+                        commitPushPending(repo.root)
                           ? t(
                               pushPending[repo.root]
                                 ? "workspace.pushing"
-                                : commitPushRequested[repo.root]
-                                  ? "workspace.committingAndPushing"
-                                  : "workspace.committing",
+                                : "workspace.committingAndPushing",
                             )
                           : t("workspace.commitAndPushFiles", {
                               count: selectedCommitPaths(repo.root).length,
@@ -564,28 +619,30 @@
                   {{ t("workspace.noChangesHint") }}
                 </p>
               </div>
-              <WorkspaceFileDiff
-                v-for="change in repoChanges(repo.root)"
-                :key="`${sessionId}:${repo.root}:${change.path}`"
-                :change="change"
-                selectable
-                :selected="selectedCommitPaths(repo.root).includes(change.path)"
-                :selection-disabled="
-                  commitPending[repo.root] || pushPending[repo.root]
-                "
-                @selection-change="
-                  selectCommitFile(repo.root, change.path, $event)
-                "
-                @open-source="
-                  openFile(
-                    relativePath(
-                      repo.root ? `${repo.root}/${change.path}` : change.path,
-                    ) ||
-                      (repo.root ? `${repo.root}/${change.path}` : change.path),
-                    'source',
-                  )
-                "
-              />
+              <template v-if="!historyOpen[repo.root]">
+                <WorkspaceFileDiff
+                  v-for="change in repoChanges(repo.root)"
+                  :key="`${sessionId}:${repo.root}:${change.path}`"
+                  :change="change"
+                  selectable
+                  :selected="selectedCommitPaths(repo.root).includes(change.path)"
+                  :selection-disabled="
+                    commitPending[repo.root] || pushPending[repo.root]
+                  "
+                  @selection-change="
+                    selectCommitFile(repo.root, change.path, $event)
+                  "
+                  @open-source="
+                    openFile(
+                      relativePath(
+                        repo.root ? `${repo.root}/${change.path}` : change.path,
+                      ) ||
+                        (repo.root ? `${repo.root}/${change.path}` : change.path),
+                      'source',
+                    )
+                  "
+                />
+              </template>
             </div>
           </div>
           <div
@@ -851,6 +908,7 @@ import {
   pushProgrammingChanges,
   getProgrammingGitBranches,
   getProgrammingGitHistory,
+  getProgrammingGitHistoryFiles,
   switchProgrammingGitBranch,
   discardProgrammingChanges,
   resetProgrammingGitCommit,
@@ -869,6 +927,7 @@ import {
   type ProgrammingGitActionResult,
   type ProgrammingGitHistory,
   type ProgrammingGitHistoryCommit,
+  type ProgrammingGitHistoryFiles,
   type ProgrammingGitResetResult,
 } from "@/api/programming";
 import {
@@ -915,6 +974,7 @@ export interface WorkspaceGateway {
   gitPull?: (
     session: string,
     repo?: string,
+    realign?: boolean,
   ) => Promise<ProgrammingGitPullResult>;
   gitPush?: (
     session: string,
@@ -930,6 +990,7 @@ export interface WorkspaceGateway {
     repo?: string,
   ) => Promise<ProgrammingGitBranches>;
   gitHistory?: (session: string, repo?: string, page?: { skip?: number; head?: string; upstream?: string }) => Promise<ProgrammingGitHistory>;
+  gitHistoryFiles?: (session: string, commit: string, repo?: string, path?: string) => Promise<ProgrammingGitHistoryFiles>;
   gitSwitchBranch?: (
     session: string,
     branch: string,
@@ -973,14 +1034,16 @@ const api: WorkspaceGateway = {
     (await commitProgrammingChanges(session, message, repo, paths)).data,
   gitRemote: async (session, refresh, repo) =>
     (await getProgrammingGitRemote(session, refresh, repo)).data,
-  gitPull: async (session, repo) =>
-    (await pullProgrammingChanges(session, repo)).data,
+  gitPull: async (session, repo, realign) =>
+    (await pullProgrammingChanges(session, repo, realign)).data,
   gitPush: async (session, repo, credentials) =>
     (await pushProgrammingChanges(session, repo, credentials)).data,
   gitBranches: async (session, repo) =>
     (await getProgrammingGitBranches(session, repo)).data,
   gitHistory: async (session, repo, page) =>
     (await getProgrammingGitHistory(session, repo, page)).data,
+  gitHistoryFiles: async (session, commit, repo, path) =>
+    (await getProgrammingGitHistoryFiles(session, commit, repo, path)).data,
   gitSwitchBranch: async (session, branch, repo, remote) =>
     (await switchProgrammingGitBranch(session, branch, repo, remote)).data,
   gitDiscard: async (session, repo) =>
@@ -1073,6 +1136,7 @@ watch(imageSource, () => {
 });
 const { changes: fileChanges, activeId: activeFileChange } = useFileChanges();
 const gitLinked = ref(false);
+const gitStatusLoading = ref(false);
 // Per-repo git status snapshot, keyed by workspace-relative repo root (""
 // for a repo at the workspace root). One entry per discovered repository; the
 // changes panel renders one group per entry. null until the first load.
@@ -1470,6 +1534,7 @@ async function refreshGitStatus() {
   if (!api.gitStatus) return;
   const epoch = generation,
     request = ++gitStatusRequest;
+  gitStatusLoading.value = true;
   try {
     const data = await api.gitStatus(props.sessionId);
     if (epoch !== generation || request !== gitStatusRequest) return;
@@ -1492,10 +1557,22 @@ async function refreshGitStatus() {
       // Legacy single-repo shape: no root/name, files at the top level.
       gitRepos.value = [{ root: "", name: "", files: data.files ?? [] }];
     }
-    for (const repo of gitRepos.value) void refreshGitHistory(repo.root);
+    const cached = new Map(data.repos?.map((repo) => [repo.root, repo.remote]));
+    for (const repo of gitRepos.value) {
+      const initialRemote = cached.get(repo.root);
+      if (initialRemote?.available && !remotes.value[repo.root]?.available) {
+        remotes.value = { ...remotes.value, [repo.root]: initialRemote };
+      } else {
+        // Read cached refs immediately, independently of directory loading.
+        void refreshGitRemote(false, repo.root);
+      }
+      void refreshGitHistory(repo.root);
+    }
   } catch {
     if (epoch === generation && request === gitStatusRequest)
       gitRepos.value = null;
+  } finally {
+    if (epoch === generation && request === gitStatusRequest) gitStatusLoading.value = false;
   }
 }
 
@@ -1526,6 +1603,7 @@ function toggleHistory(root: string) {
     ...historyOpen.value,
     [root]: !historyOpen.value[root],
   };
+  if (historyOpen.value[root]) void refreshGitHistory(root, false, true);
 }
 const fetchingRemoteRoots = new Set<string>();
 let remotePollTimer: ReturnType<typeof setTimeout> | undefined;
@@ -1603,6 +1681,15 @@ function commitDisabled(root: string) {
     !(commitMessages.value[root] || "").trim() ||
     !selectedCommitPaths(root).length
   );
+}
+
+// The two commit buttons are separate actions, so each one shows progress only
+// for the action the user actually pressed; commitPushRequested records which.
+function commitLocalPending(root: string) {
+  return !!commitPending.value[root] && !commitPushRequested.value[root];
+}
+function commitPushPending(root: string) {
+  return !!commitPending.value[root] && !!commitPushRequested.value[root];
 }
 
 async function submitCommit(root: string, pushAfter = false, retryPaths?: string[]) {
@@ -1858,7 +1945,7 @@ const revertPending = ref(false);
 const revertError = ref("");
 
 function askRevert(root: string, commit: ProgrammingGitHistoryCommit) {
-  if (!commit?.sha) return;
+  if (!commit?.sha || commit.can_reset !== true) return;
   revertTarget.value = {
     root,
     sha: commit.sha,
@@ -1883,7 +1970,17 @@ async function confirmRevert() {
       void refreshGitHistory(target.root, false, true);
       return;
     }
-    revertError.value = result.detail || t("workspace.historyRevertFailed");
+    const reasons = {
+      not_on_branch: 'workspace.historyRevertNotOnBranch',
+      already_at_commit: 'workspace.historyRevertAlreadyAtCommit',
+      published_history: 'workspace.historyRevertPublished',
+      dirty_tree: 'workspace.historyRevertDirty',
+      git_error: 'workspace.historyRevertFailed',
+    } as const;
+    revertError.value = result.reason && result.reason !== 'git_error'
+      ? t(reasons[result.reason])
+      : result.detail || t("workspace.historyRevertFailed");
+    void refreshGitHistory(target.root, false, true);
   } catch {
     if (epoch === generation)
       revertError.value = t("workspace.historyRevertFailed");
@@ -1903,6 +2000,13 @@ function remoteVisible(root: string) {
 function pullVisible(root: string) {
   const r = remotes.value[root];
   return remoteVisible(root) && !!r && r.upstream !== "";
+}
+
+// A diverged branch can align with the remote after saving its local edits.
+// Reapplying them can merge automatically or leave explicit conflicts to resolve.
+function diverged(root: string) {
+  const r = remotes.value[root];
+  return pullVisible(root) && !!r && r.ahead > 0 && r.behind > 0;
 }
 
 function pushVisible(root: string) {
@@ -2022,14 +2126,8 @@ async function refreshGitRemote(refresh = false, root = "") {
   }
 }
 
-/** Refresh the remote strip for every repo currently shown. */
-function refreshAllRemotes(refresh = false) {
-  for (const repo of gitRepos.value ?? [])
-    void refreshGitRemote(refresh, repo.root);
-}
-
 async function refreshGitHistory(root: string, more = false, reset = false) {
-  if (!api.gitHistory || (historyLoading.value[root] && !reset)) return;
+  if (!api.gitHistory || !historyOpen.value[root] || (historyLoading.value[root] && !reset)) return;
   const previous = gitHistories.value[root];
   if (more && !previous?.has_more) return;
   const epoch = generation, request = (historyRequests.get(root) || 0) + 1;
@@ -2109,7 +2207,7 @@ onMounted(() => {
     window.addEventListener("focus", restartRemotePolling);
 });
 
-async function submitPull(root: string) {
+async function submitPull(root: string, realign = false) {
   if (
     !api.gitPull ||
     pullPending.value[root] ||
@@ -2122,10 +2220,18 @@ async function submitPull(root: string) {
   pullPending.value = { ...pullPending.value, [root]: true };
   pullErrors.value = { ...pullErrors.value, [root]: "" };
   try {
-    const result = await api.gitPull(props.sessionId, root);
+    const result = await api.gitPull(props.sessionId, root, realign);
     if (epoch !== generation) return;
     if (result.pulled) {
-      MessagePlugin.success(t("workspace.pullSuccess"));
+      if (result.conflicts || result.restore_failed) {
+        const detail = result.conflicts ? t('workspace.pullAlignedConflicts') : result.detail || t('workspace.pullRestoreFailed');
+        pullErrors.value = { ...pullErrors.value, [root]: detail };
+        MessagePlugin.warning(detail);
+        fileView.value = 'diff';
+      } else {
+        pullErrors.value = { ...pullErrors.value, [root]: '' };
+        MessagePlugin.success(t(result.aligned ? "workspace.pullAligned" : "workspace.pullSuccess"));
+      }
       void refreshGitHistory(root, false, true);
       // A pull updates HEAD and files; reload the open file and tree as well
       // as status and the remote strip.
@@ -2135,6 +2241,10 @@ async function submitPull(root: string) {
         ...pullErrors.value,
         [root]: result.detail || t("workspace.pullFailed"),
       };
+      if (realign) {
+        void refresh();
+        void refreshGitHistory(root, false, true);
+      }
     }
   } catch {
     if (epoch !== generation) return;
@@ -2160,18 +2270,11 @@ async function refreshInternal(preferFocus: boolean) {
   // Snapshot git status in parallel with the directory loads below: the
   // changes panel's diff button depends only on this probe, so it appears as
   // soon as git answers instead of waiting for every directory to reload.
-  const gitRefresh = refreshGitStatus();
+  void refreshGitStatus();
   await Promise.all(
     (loaded.length ? loaded : [""]).map((path) => loadDirectory(path)),
   );
   if (epoch !== generation || request !== refreshRequest || error.value) return;
-  // refreshGitStatus is the authoritative git-link probe: it runs whether or
-  // not a previous load linked, and sets gitLinked itself. Remote state only
-  // makes sense on a linked workspace, so it follows the link afterwards.
-  void gitRefresh.then(() => {
-    if (epoch === generation && request === refreshRequest && gitLinked.value)
-      refreshAllRemotes();
-  });
   const focus = relativePath(props.focusPath);
   const restored = savedOpenFile();
   // A live-edit path may still carry the workspace root (the tree is not
@@ -2414,6 +2517,7 @@ watch(
   () => {
     generation++;
     gitLinked.value = false;
+    gitStatusLoading.value = false;
     gitRepos.value = null;
     commitMessages.value = {};
     commitPending.value = {};
@@ -2895,6 +2999,25 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.remote-strip--loading {
+  padding: 8px 10px;
+}
+.remote-strip__placeholder {
+  display: inline-flex;
+  align-items: center;
+  width: 180px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--td-component-border);
+  border-radius: 5px;
+  background: var(--td-bg-color-secondarycontainer);
+  color: var(--td-text-color-placeholder);
+}
+.remote-strip__loading-text {
+  color: var(--td-text-color-placeholder);
+  font-size: 12px;
+  margin-right: auto;
 }
 .remote-strip__arrow {
   flex: none;
