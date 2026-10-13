@@ -101,6 +101,32 @@ func TestWebPreviewRenewsIframeURLAfterUpstreamGatewayFailure(t *testing.T) {
 	}
 }
 
+func TestWebPreviewBrowserProbeRestrictsCORSAndDoesNotExposeSecrets(t *testing.T) {
+	m := &webPreviewRecoveryManager{status: 200}
+	h := NewProgrammingHandler(programmingGitSession{}, service.NewPinnedSessionSandbox(programmingGitPin{}, m, nil, nil))
+	router := gin.New()
+	router.Use(h.WebPreviewMiddleware(nil))
+	token := strings.Repeat("b", 32)
+	host := "wkpreview-" + token + ".localhost:8080"
+	lease := previewLease{UserID: "user", TenantID: 1, SessionID: "git-test", SandboxID: "preview-sandbox", Port: 5173, RelayPort: 45678, Secret: strings.Repeat("a", 64), Host: host, AppOrigin: "http://localhost:5173"}
+	require.NoError(t, h.previewLeases.put(context.Background(), token, lease))
+	for _, origin := range []string{lease.AppOrigin, "http://other.example"} {
+		r := httptest.NewRequest("GET", "http://"+host+"/.weknora/preview-health", nil)
+		r.Header.Set("Origin", origin)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, r)
+		if origin == lease.AppOrigin {
+			require.Equal(t, 200, w.Code)
+			require.Equal(t, origin, w.Header().Get("Access-Control-Allow-Origin"))
+			require.Contains(t, w.Body.String(), "ready")
+		} else {
+			require.Equal(t, 403, w.Code)
+			require.Empty(t, w.Header().Get("Access-Control-Allow-Origin"))
+		}
+		require.NotContains(t, w.Body.String(), lease.Secret)
+	}
+}
+
 // The hostname must come from the origin (the address the browser used) and the
 // port from this request (the listener that serves the relay). Swapping them
 // breaks one of the two cases below.

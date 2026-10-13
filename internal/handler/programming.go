@@ -48,6 +48,7 @@ const (
 // terminal lifecycle, so the programming UI cannot accidentally escape those
 // existing authorization rules.
 type ProgrammingHandler struct {
+	tests          *service.WorkspaceTestService
 	previewLeases  *previewLeaseStore
 	sessions       interfaces.SessionService
 	workspace      *service.PinnedSessionSandbox

@@ -25,6 +25,9 @@
               <span class="git-history__node" aria-hidden="true"><t-icon v-if="commit.parents?.length > 1" name="git-merge" size="13px" /><i v-else /></span>
               <span class="git-history__subject">{{ commit.subject }}</span>
               <span class="git-history__author">{{ commit.author }}</span>
+              <button v-if="validations[commit.sha]" class="git-history__validation" :class="validations[commit.sha].result.outcome" type="button" :title="t('workspace.validationViewReport')" @click.stop.prevent="openValidationReport(validations[commit.sha].report_message_id)">
+                <t-icon :name="validations[commit.sha].result.outcome === 'passed' ? 'check-circle' : 'error-circle'" size="12px" />{{ t(`workspace.validationState_${validations[commit.sha].result.outcome}`) }}
+              </button>
               <span v-if="commit.status === 'outgoing' || commit.status === 'incoming'" class="git-history__state" :class="`is-${commit.status}`">
                 {{ t(commit.status === 'outgoing' ? 'workspace.historyOutgoing' : 'workspace.historyIncoming') }}
               </span>
@@ -84,11 +87,15 @@
         <t-icon v-if="loading" name="loading" size="12px" class="is-spinning" />{{ t(loading ? 'workspace.historyLoading' : 'workspace.historyLoadMore') }}
       </button>
     </div>
+    <ChatArtifactsDrawer v-model:visible="validationReportVisible" :session-id="sessionId || ''" :message-id="validationReportMessage" :preview-index="0" />
   </section>
 </template>
 
 <script setup lang="ts">
 import { onBeforeUnmount, ref, watch } from 'vue'
+import { workspaceTestsAPI, type TestRun } from '@/api/workspaceTests'
+import { commitValidationRuns } from '@/utils/workspaceValidation'
+import ChatArtifactsDrawer from '@/views/chat/components/ChatArtifactsDrawer.vue'
 import { useI18n } from 'vue-i18n'
 import type { ProgrammingGitHistory, ProgrammingGitHistoryCommit, ProgrammingGitHistoryFile, ProgrammingGitHistoryFiles } from '@/api/programming'
 import { copyWithToast } from '@/utils/clipboard'
@@ -100,6 +107,19 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ refresh: []; loadMore: []; revert: [commit: ProgrammingGitHistoryCommit] }>()
 const { t } = useI18n()
+const validations = ref<Record<string,TestRun>>({})
+const validationReportVisible = ref(false), validationReportMessage = ref('')
+let validationEpoch = 0
+watch(() => [props.sessionId, props.repo, props.report?.head], async () => {
+  const epoch = ++validationEpoch
+  validations.value = {}
+  if (!props.sessionId) return
+  try {
+    const runs = await workspaceTestsAPI.runs(props.sessionId)
+    if (epoch === validationEpoch) validations.value = commitValidationRuns(runs,props.repo || '')
+  } catch { /* Validation metadata is optional; Git history stays usable. */ }
+}, { immediate:true })
+function openValidationReport(id?:string) { if(id) { validationReportMessage.value=id; validationReportVisible.value=true } }
 const collapsed = ref(false)
 const files = ref<Record<string, ProgrammingGitHistoryFiles>>({})
 const filesLoading = ref<Record<string, boolean>>({})
@@ -212,6 +232,8 @@ function patchLines(patch: string) {
 .git-history__item.is-head .git-history__node i { width: 16px; height: 16px; border: 2px solid var(--git-history-accent); background: var(--td-bg-color-container); }
 .git-history__subject { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; color: var(--td-text-color-primary); }
 .git-history__author { min-width: 0; max-width: 100px; flex-shrink: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--td-text-color-placeholder); font-size: 12px; }
+.git-history__validation { display:inline-flex; align-items:center; gap:3px; padding:2px 5px; border:0; background:var(--td-bg-color-secondarycontainer); border-radius:4px; color:var(--td-warning-color); font:inherit; font-size:10px; cursor:pointer; white-space:nowrap; }
+.git-history__validation.passed { color:var(--td-success-color); } .git-history__validation.failed { color:var(--td-error-color); }
 .git-history__actions { display: inline-flex; margin-left: auto; flex: none; opacity: 0; }
 .git-history__row:hover .git-history__actions, .git-history__row:focus-within .git-history__actions, .git-history__entry[open] .git-history__actions { opacity: 1; }
 .git-history__ref { display: inline-flex; align-items: center; gap: 3px; flex: none; max-width: 105px; padding: 1px 5px; border-radius: 8px; color: var(--td-text-color-secondary); background: var(--td-bg-color-secondarycontainer); font-size: 10px; }

@@ -356,6 +356,8 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	// each agent turn. The factory returns nil when the sandbox backend does
 	// not support per-session file inspection; downstream code guards on nil.
 	must(container.Provide(service.NewArtifactCollectorFromSandboxManager))
+	must(container.Provide(repository.NewWorkspaceTestRunRepository))
+	must(container.Provide(service.NewWorkspaceTestService))
 
 	// WorkspaceCheckpointer commits the sandbox /workspace after each agent
 	// turn so session fork can roll a forked sandbox back to a given message.
@@ -539,7 +541,7 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	must(container.Provide(handler.NewFAQHandler))
 	must(container.Provide(handler.NewTagHandler))
 	must(container.Provide(session.NewHandler))
-	must(container.Provide(handler.NewProgrammingHandlerWithPreview))
+	must(container.Provide(handler.NewProgrammingHandlerWithTests))
 	must(container.Provide(handler.NewProjectHandler))
 	must(container.Provide(handler.NewMessageHandler))
 	must(container.Provide(handler.NewMessageSuggestionHandler))

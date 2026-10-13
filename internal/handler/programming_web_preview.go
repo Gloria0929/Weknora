@@ -120,6 +120,31 @@ func (h *ProgrammingHandler) WebPreviewMiddleware(client *redis.Client) gin.Hand
 			c.Status(http.StatusForbidden)
 			return
 		}
+		if c.Request.URL.Path == "/.weknora/preview-health" {
+			// Only the owning application's browser may read this dedicated
+			// probe. Project responses otherwise retain their CORS isolation.
+			if c.GetHeader("Origin") != lease.AppOrigin || c.Request.Method != http.MethodGet {
+				c.Status(http.StatusForbidden)
+				return
+			}
+			c.Header("Access-Control-Allow-Origin", lease.AppOrigin)
+			c.Header("Vary", "Origin")
+			c.Header("Cache-Control", "no-store")
+			probeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+			req, _ := http.NewRequestWithContext(probeCtx, http.MethodGet, "http://localhost/", nil)
+			req.Header.Set("X-WeKnora-Preview-Relay", lease.Secret)
+			response, err := h.workspace.RoundTripWebPreview(probeCtx, lease.SessionID, lease.SandboxID, lease.RelayPort, req)
+			if response != nil && response.Body != nil {
+				defer response.Body.Close()
+			}
+			if err != nil || response == nil || response.StatusCode >= 400 {
+				c.JSON(502, gin.H{"status": "unreachable"})
+				return
+			}
+			c.JSON(200, gin.H{"status": "ready"})
+			return
+		}
 		proxy := &httputil.ReverseProxy{
 			Rewrite: func(p *httputil.ProxyRequest) {
 				p.Out.URL.Scheme = "http"

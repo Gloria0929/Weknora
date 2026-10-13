@@ -23,7 +23,7 @@ function mount(gateway = {}, seed = {}) {
   // directly so a live edit can be replayed without the SSE handler.
   const changes = seed.changes || ref([]), activeId = seed.activeId || ref(null)
   const scope = effectScope()
-  const state = scope.run(() => vm.runInNewContext(`${compiled}; ({ file, nodes, directory, error, busy, command, running, runs, runError, openFile, loadDirectory, refresh, runTests, askToFix, reconcileMissingFile, treeRows, toggleDirectory, childrenByPath, expandedPaths, fileGlyph, fileView, showFilePreview, showFileDiff, showViewSwitch, previewHtml, previewLoading, formattedCode, content, highlightedLines, treeWidth, treeStyle, startTreeResize, resizeTree, endTreeResize, TREE_MIN_WIDTH, TREE_MAX_WIDTH, visibleFileChanges, gitStatusFiles, hasChangesPanel, gitLinked, gitRepos, repoChanges, refreshGitStatus, refreshGitRemote, submitCommit, commitMessages, commitPending, commitErrors, saveIdentity, identityForRepo, identityName, identityEmail, identityPending, identityError, ensureBranches, branchOptions, switchBranch, branchSwitching, branchErrors, confirmDiscard, discardForRepo, discardPending, discardError, submitPull, pullPending, pullErrors, remotes })`, {
+  const state = scope.run(() => vm.runInNewContext(`${compiled}; ({ file, nodes, directory, error, busy, openFile, loadDirectory, refresh, reconcileMissingFile, treeRows, toggleDirectory, childrenByPath, expandedPaths, fileGlyph, fileView, showFilePreview, showFileDiff, showViewSwitch, previewHtml, previewLoading, formattedCode, content, highlightedLines, treeWidth, treeStyle, startTreeResize, resizeTree, endTreeResize, TREE_MIN_WIDTH, TREE_MAX_WIDTH, visibleFileChanges, gitStatusFiles, hasChangesPanel, gitLinked, gitRepos, repoChanges, refreshGitStatus, refreshGitRemote, submitCommit, commitMessages, commitPending, commitErrors, ensureBranches, branchOptions, switchBranch, branchSwitching, branchErrors, confirmDiscard, discardForRepo, discardPending, discardError, submitPull, pullPending, pullErrors, remotes })`, {
     MessagePlugin: { success: message => notifications.push(message) },
     computed, ref, watch, defineProps: () => props, withDefaults: value => value,
     defineEmits: () => (...args) => { if (args[0] !== 'viewChange') emitted.push(args) }, useI18n: () => ({ t: (key, values) => key + (values ? JSON.stringify(values) : '') }),
@@ -57,37 +57,6 @@ test('changing conversation rejects late files and resets workspace state', asyn
   pending.resolve(file('old.ts')); await request
   assert.equal(view.state.file.value, null)
   assert.equal(view.state.directory.value, '')
-  view.unmount()
-})
-
-test('test commands do not run on mount or on blank input; repeated submit is locked', async () => {
-  let calls = 0
-  const pending = deferred(), view = mount({ run: () => { calls++; return pending.promise } })
-  assert.equal(calls, 0)
-  view.state.command.value = '  '; await view.state.runTests(); assert.equal(calls, 0)
-  view.state.command.value = 'npm test'
-  const run = view.state.runTests(); await view.state.runTests()
-  assert.equal(calls, 1); assert.equal(view.state.running.value, true)
-  pending.resolve({ stdout: 'one failure', stderr: 'assertion failed', exit_code: 1, duration_ms: 42, killed: false }); await run
-  assert.equal(view.state.running.value, false)
-  assert.equal(view.state.runs.value[0].result.exit_code, 1)
-  view.state.askToFix(view.state.runs.value[0])
-  assert.equal(view.emitted[0][0], 'ask')
-  assert.match(view.emitted[0][1], /assertion failed/)
-  assert.match(view.emitted[0][1], /npm test/)
-  view.unmount()
-})
-
-test('closing and reopening keeps results while conversation switches discard late command output', async () => {
-  const pending = deferred(), view = mount({ run: () => pending.promise })
-  view.state.command.value = 'go test ./...'
-  const run = view.state.runTests()
-  view.props.active = false; await nextTick()
-  assert.equal(view.state.running.value, true)
-  view.props.sessionId = 'b'; await nextTick()
-  pending.resolve({ stdout: 'old session output', stderr: '', exit_code: 0, duration_ms: 5, killed: false }); await run
-  assert.equal(view.state.runs.value.length, 0)
-  assert.equal(view.state.running.value, false)
   view.unmount()
 })
 
@@ -170,14 +139,11 @@ test('file markers follow Manus: TS/JS text, braces for data, git glyph for git 
   view.unmount()
 })
 
-test('unavailable workspaces and command errors surface recovery states without fabricated output', async () => {
+test('unavailable workspaces surface recovery states without fabricated output', async () => {
   const view = mount({ tree: async () => { throw Error('unavailable') }, run: async () => { throw Error('offline') } })
   await view.state.loadDirectory()
   assert.match(view.state.error.value, /workspace.unavailable/)
   assert.equal(view.state.busy.value, false)
-  view.state.command.value = 'python -m pytest'; await view.state.runTests()
-  assert.match(view.state.runError.value, /workspace.runError/)
-  assert.equal(view.state.runs.value.length, 0)
   view.unmount()
 })
 
@@ -493,7 +459,6 @@ test('a late git status snapshot cannot restore changes after a newer clean snap
 test('late git actions cannot update or retry against a different conversation', async () => {
   const scenarios = [
     ['gitCommit', state => { state.commitMessages.value.app = 'commit'; return state.submitCommit('app') }, { committed: false, needs_identity: true, detail: 'old error' }],
-    ['gitIdentity', state => { state.identityForRepo.value = 'app'; state.identityName.value = 'Dev'; state.identityEmail.value = 'dev@example.com'; state.commitMessages.value.app = 'commit'; return state.saveIdentity() }, { saved: true }],
     ['gitBranches', state => state.ensureBranches('app'), { branches: ['old'], current: 'old' }],
     ['gitSwitchBranch', state => state.switchBranch('app', 'old'), { switched: false, detail: 'old error' }],
     ['gitDiscard', state => { state.discardForRepo.value = 'app'; return state.confirmDiscard() }, { discarded: false, detail: 'old error' }],
@@ -505,12 +470,10 @@ test('late git actions cannot update or retry against a different conversation',
     const request = run(view.state)
     view.props.sessionId = 'b'; await nextTick()
     pending.resolve(result); await request
-    assert.equal(view.state.identityForRepo.value, null, method)
     assert.equal(view.state.discardForRepo.value, null, method)
     for (const key of ['commitErrors', 'commitPending', 'branchOptions', 'branchErrors', 'branchSwitching', 'pullErrors', 'pullPending']) {
       assert.equal(Object.keys(view.state[key].value).length, 0, `${method}: ${key}`)
     }
-    assert.equal(view.state.identityError.value, '', method)
     assert.equal(view.state.discardError.value, '', method)
     assert.equal(view.notifications.length, 0, method)
     assert.equal(commits.length, 0, 'identity must not retry the old commit in the new conversation')
@@ -522,17 +485,11 @@ test('changing conversation resets branch options and open git dialogs', async (
   const view = mount()
   view.state.branchOptions.value.app = ['old']
   view.state.branchErrors.value.app = 'old error'
-  view.state.identityForRepo.value = 'app'
-  view.state.identityName.value = 'Old'
-  view.state.identityEmail.value = 'old@example.com'
   view.state.discardForRepo.value = 'app'
   view.state.discardError.value = 'old error'
   view.props.sessionId = 'b'; await nextTick()
   assert.equal(Object.keys(view.state.branchOptions.value).length, 0)
   assert.equal(Object.keys(view.state.branchErrors.value).length, 0)
-  assert.equal(view.state.identityForRepo.value, null)
-  assert.equal(view.state.identityName.value, '')
-  assert.equal(view.state.identityEmail.value, '')
   assert.equal(view.state.discardForRepo.value, null)
   assert.equal(view.state.discardError.value, '')
   view.unmount()

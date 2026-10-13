@@ -221,6 +221,15 @@ func (s *SandboxTerminalService) provisionOnManager(
 // following the original pin before the newly selected agent configuration.
 // No PTY or desktop is opened to prepare a web preview.
 func (s *SandboxTerminalService) EnsureSessionWorkspace(ctx context.Context, sessionID string, provision SandboxPin) error {
+	return s.ensureSessionExecution(ctx, sessionID, provision, true)
+}
+
+// EnsureSessionTestWorkspace needs shell execution, not desktop or preview transport.
+func (s *SandboxTerminalService) EnsureSessionTestWorkspace(ctx context.Context, sessionID string, provision SandboxPin) error {
+	return s.ensureSessionExecution(ctx, sessionID, provision, false)
+}
+
+func (s *SandboxTerminalService) ensureSessionExecution(ctx context.Context, sessionID string, provision SandboxPin, preview bool) error {
 	if s == nil {
 		return sandbox.ErrNoLiveSessionSandbox
 	}
@@ -236,7 +245,7 @@ func (s *SandboxTerminalService) EnsureSessionWorkspace(ctx context.Context, ses
 	if mgr == nil || !sandbox.IsNamedSandboxBackendType(string(mgr.GetType())) {
 		return sandbox.ErrPreviewUnsupported
 	}
-	if _, ok := mgr.(sandbox.SessionPreviewTransport); !ok {
+	if _, ok := mgr.(sandbox.SessionPreviewTransport); preview && !ok {
 		return sandbox.ErrPreviewUnsupported
 	}
 	return s.provisionOnManager(ctx, mgr, sessionID)

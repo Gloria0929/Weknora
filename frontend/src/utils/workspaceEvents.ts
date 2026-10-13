@@ -238,11 +238,12 @@ export function workspaceToolSignal(chunk: { response_type?: string; data?: Reco
   if (chunk.response_type !== 'tool_call' && chunk.response_type !== 'tool_result') return null
   const data = chunk.data || {}
   const name = String(data.tool_name || '')
-  if (!fileTools.has(name) && !commandTools.has(name)) return null
   let args = data.arguments || {}
   if (typeof args === 'string') {
     try { args = JSON.parse(args) } catch { args = {} }
   }
+  if (name === 'workspace_tests') return { tab: 'tests', path: '', refresh: chunk.response_type === 'tool_result' && args.action === 'run', tool: name }
+  if (!fileTools.has(name) && !commandTools.has(name)) return null
   const result = data.tool_data || data.data || data
   const command = String(args.command || args.code || result.command || '')
   const isTest = commandTools.has(name) && workspaceCheckKind(command) === 'tests'

@@ -88,8 +88,11 @@
             :revision="workspaceRevision"
             :focus-path="workspacePath"
             :agent-runs="agentRuns"
+            :agent-id="agentId"
+            :agent-source-tenant-id="agentSourceTenantId"
             :gateway="workspaceGateway"
             @ask="emit('ask', $event)"
+            @report-created="emit('refreshArtifacts', $event)"
             @view-change="emit('workspaceViewChange', $event)"
           />
           <ChatArtifactsPanel
@@ -208,6 +211,7 @@ const props = withDefaults(
 // The artifact list is owned by the chat view (a computed over the loaded
 // history), so a delete inside the panel has to travel back up to it.
 const emit = defineEmits<{
+  (e: "refreshArtifacts", messageId?: string): void;
   (e: "artifactDeleted", payload: { messageId: string; index: number }): void;
   (e: "ask", prompt: string): void;
   (e: "workspaceViewChange", view: "source" | "diff" | "preview"): void;
@@ -215,6 +219,9 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 const panel = useChatSandboxPanel();
+watch(() => [props.sessionId, panel?.visible.value, panel?.activeTab.value], () => {
+  if (props.sessionId && panel?.visible.value && panel.activeTab.value === 'artifacts') emit('refreshArtifacts')
+});
 const chatResources = useChatResourcesStore();
 const sandboxConfigsReady = ref(false);
 const previewCapabilities = ref<ProgrammingPreviewCapabilities | null>(null);

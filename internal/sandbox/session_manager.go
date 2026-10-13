@@ -1161,6 +1161,22 @@ func (m *SessionBoundManager) RequireRunningSessionSandbox(
 	return nil
 }
 
+// Validation owns this context until its detached task finishes. Reuse the
+// provider timeout refresher without opening a terminal or a desktop.
+func (m *SessionBoundManager) KeepSessionAlive(ctx context.Context, sessionID string) error {
+	handle, found, err := m.lookupSessionHandle(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return ErrNoLiveSessionSandbox
+	}
+	if refresher, ok := DesktopTTLRefresherFrom(m.client); ok {
+		refresher.StartDesktopTTLRefresh(ctx, handle)
+	}
+	return nil
+}
+
 // OpenSessionDesktop dials the desktop of the sandbox currently bound to the
 // session.
 //

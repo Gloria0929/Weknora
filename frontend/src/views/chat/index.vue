@@ -400,6 +400,7 @@
     @ask="prefillWorkspacePrompt"
     @workspace-view-change="workspaceFileView = $event"
     @artifact-deleted="handleArtifactDeleted"
+    @refresh-artifacts="refreshTestReportArtifacts"
   />
 </template>
 <script setup>
@@ -429,7 +430,9 @@ import {
   getSession,
   forkSession,
   rewindSession,
+  listMessageArtifacts,
 } from "@/api/chat/index";
+import { workspaceTestsAPI } from "@/api/workspaceTests";
 import { resolveForkAffordance } from "./forkPoint";
 import { rewindSkipMessage } from "./rewindNotice";
 import {
@@ -956,7 +959,26 @@ async function handleRewind(messageId) {
   }
 }
 
-const sessionArtifacts = computed(() => collectSessionArtifacts(messagesList));
+const testReportArtifacts = ref([]);
+const sessionArtifacts = computed(() => {
+  const items = [...collectSessionArtifacts(messagesList), ...testReportArtifacts.value];
+  return [...new Map(items.map(item => [`${item.messageId}:${item.index}`, item])).values()];
+});
+let testReportRequest = 0;
+watch(session_id, () => { testReportRequest++; testReportArtifacts.value = []; });
+async function refreshTestReportArtifacts() {
+  const sid = session_id.value, request = ++testReportRequest;
+  if (!sid) return;
+  try {
+    const runs = await workspaceTestsAPI.runs(sid);
+    const ids = [...new Set(runs.map(run => run.report_message_id).filter(Boolean))];
+    const groups = await Promise.all(ids.map(async messageId => {
+      const res = await listMessageArtifacts(sid, messageId);
+      return (res?.data || []).map(item => ({ ...item, messageId }));
+    }));
+    if (sid === session_id.value && request === testReportRequest) testReportArtifacts.value = groups.flat();
+  } catch (error) { console.error('Could not refresh test report artifacts', error); }
+}
 
 // Auto-delete old workspace-source.zip artifacts, keeping only the latest.
 watch(
@@ -991,6 +1013,7 @@ watch(
 // history so the computed drops it without reloading the conversation.
 function handleArtifactDeleted({ messageId, index }) {
   markSessionArtifactDeleted(messagesList, messageId, index);
+  testReportArtifacts.value = testReportArtifacts.value.filter(item => item.messageId !== messageId || item.index !== index);
 }
 const sessionArtifactsCollecting = computed(() =>
   messagesList.some((message) => isCollectingSkillArtifacts(message)),

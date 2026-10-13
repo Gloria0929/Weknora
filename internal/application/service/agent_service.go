@@ -93,6 +93,7 @@ func knowledgeBaseScopesForPrompt(config *types.AgentConfig) ([]string, map[stri
 
 // agentService implements agent-related business logic
 type agentService struct {
+	workspaceTests       *WorkspaceTestService
 	browserSkill         *browserskill.Manager
 	userRepo             interfaces.UserRepository
 	cfg                  *config.Config
@@ -147,8 +148,10 @@ func NewAgentService(
 	hostSandbox HostSandboxManager,
 	browserSkill *browserskill.Manager,
 	userRepo interfaces.UserRepository,
+	workspaceTests *WorkspaceTestService,
 ) interfaces.AgentService {
 	return &agentService{
+		workspaceTests:       workspaceTests,
 		browserSkill:         browserSkill,
 		userRepo:             userRepo,
 		cfg:                  cfg,
@@ -535,6 +538,24 @@ func (s *agentService) registerSandboxShellIfAllowed(
 		return
 	}
 	s.registerSandboxShellTool(ctx, toolRegistry, sandboxMgr, config)
+	if s.workspaceTests != nil && !config.SkillInstallMode() && sessionSandboxShellExecutor(sandboxMgr) != nil {
+		toolRegistry.RegisterTool(tools.NewWorkspaceTestsTool(func(ctx context.Context, args tools.WorkspaceTestsArguments) (any, error) {
+			switch args.Action {
+			case "discover":
+				return s.workspaceTests.Discover(ctx, sessionID)
+			case "run":
+				return s.workspaceTests.Start(ctx, sessionID, types.WorkspaceTestRequest{ProjectID: args.ProjectID, TargetID: args.TargetID, TargetIDs: args.TargetIDs, Source: "ai", Timeout: args.Timeout}, SandboxPin{})
+			case "status":
+				return s.workspaceTests.Refresh(ctx, sessionID, args.RunID)
+			case "history":
+				return s.workspaceTests.List(ctx, sessionID)
+			case "cancel":
+				return s.workspaceTests.Cancel(ctx, sessionID, args.RunID)
+			default:
+				return nil, fmt.Errorf("unknown validation action")
+			}
+		}))
+	}
 }
 
 // resolveWorkspaceSandbox returns the session's remote sandbox manager, or
@@ -925,6 +946,7 @@ func (s *agentService) registerSandboxShellTool(
 		toolRegistry.RegisterTool(
 			tools.NewShellExecTool(executor, resolver).WithEnvCapture(s.skillEnvCapture(config)),
 		)
+
 		logger.Infof(ctx, "Registered shell_exec tool")
 	} else {
 		logger.Infof(ctx, "Sandbox backend does not advertise remote shell capability; shell_exec not registered")
