@@ -90,7 +90,7 @@ test('failed toggle preserves the displayed status and allows a retry', async ()
     await f.vm.handleToggleEnabled(f.service)
     assert.equal(f.service.enabled, true)
     assert.equal(f.vm.togglingIds.size, 0)
-    assert.deepEqual(f.errors, ['mcpSettings.toasts.updateStateFailed'])
+    assert.deepEqual(f.errors, ['unavailable'])
   } finally { f.close() }
 })
 

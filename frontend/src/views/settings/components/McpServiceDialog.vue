@@ -665,9 +665,9 @@ async function startAuthorize(serviceId: string) {
         }
       }
     }, 1500)
-  } catch (e) {
+  } catch (e: any) {
     console.error('Failed to start MCP OAuth authorization:', e)
-    MessagePlugin.error(t('mcpServiceDialog.toasts.authorizeFailed', '发起授权失败') as string)
+    MessagePlugin.error(e?.message || (t('mcpServiceDialog.toasts.authorizeFailed', '发起授权失败') as string))
     oauthAuthorizing.value = false
   }
 }
@@ -689,9 +689,9 @@ async function handleRevokeOAuth() {
     oauthAuthorized.value = false
     oauthTokenState.value = 'reauth_required'
     MessagePlugin.success(t('mcpServiceDialog.toasts.revoked', '已撤销授权') as string)
-  } catch (e) {
+  } catch (e: any) {
     console.error('Failed to revoke MCP OAuth token:', e)
-    MessagePlugin.error(t('mcpServiceDialog.toasts.revokeFailed', '撤销失败') as string)
+    MessagePlugin.error(e?.message || (t('mcpServiceDialog.toasts.revokeFailed', '撤销失败') as string))
   }
 }
 
@@ -939,8 +939,8 @@ async function saveConnection(): Promise<MCPService | null> {
     savedService.value = saved
     emit('created', saved)
     return saved
-  } catch (error) {
-    MessagePlugin.error(t('mcpServiceDialog.toasts.updateFailed'))
+  } catch (error: any) {
+    MessagePlugin.error(error?.message || t('mcpServiceDialog.toasts.updateFailed'))
     return null
   } finally { submitting.value = false }
 }
@@ -960,8 +960,8 @@ async function handleGenerateUsage() {
     if (current !== usageGeneration) return
     formData.value.usage_instructions = instructions
     MessagePlugin.success(t('mcpMetadata.generated'))
-  } catch {
-    if (current === usageGeneration) MessagePlugin.error(t('mcpMetadata.generateFailed'))
+  } catch (error: any) {
+    if (current === usageGeneration) MessagePlugin.error(error?.message || t('mcpMetadata.generateFailed'))
   } finally {
     if (current === usageGeneration) generatingUsage.value = false
   }
@@ -986,7 +986,7 @@ const handleSubmit = async () => {
     await updateMCPService(id, { usage_instructions: instructions })
     MessagePlugin.success(t('mcpServiceDialog.toasts.updated'))
     emit('success')
-  } catch (error) { MessagePlugin.error(t('mcpServiceDialog.toasts.updateFailed')) }
+  } catch (error: any) { MessagePlugin.error(error?.message || t('mcpServiceDialog.toasts.updateFailed')) }
   finally { submitting.value = false }
 }
 

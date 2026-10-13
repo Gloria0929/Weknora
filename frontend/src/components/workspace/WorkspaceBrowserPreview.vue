@@ -6,7 +6,7 @@
         {{ t('workspace.remoteDesktop') }}<span v-if="desktopUnavailable" class="desktop-unavailable">{{ t('workspace.unavailableBadge') }}</span>
       </button>
     </div>
-    <WorkspaceUrlPreview v-show="mode === 'url'" :key="sessionId" :session-id="sessionId" :revision="revision" :active="active && mode === 'url'" @ask="emit('ask', $event)" @open-terminal="emit('open-terminal')" />
+    <WorkspaceUrlPreview v-show="mode === 'url'" :key="sessionId" :session-id="sessionId" :agent-id="agentId" :agent-source-tenant-id="agentSourceTenantId" :revision="revision" :active="active && mode === 'url'" @ask="emit('ask', $event)" @open-terminal="emit('open-terminal')" />
     <WorkspaceDesktopPreview v-if="mode === 'desktop'" :key="desktopGeneration" :session-id="sessionId" :agent-id="agentId" :agent-source-tenant-id="agentSourceTenantId"
       :enabled="enabled && !desktopUnavailable" :loading="loading" :active="active && mode === 'desktop'" @status="desktopStatus = $event" @retry="retryDesktop" />
   </section>

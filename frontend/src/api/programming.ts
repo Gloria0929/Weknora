@@ -265,6 +265,8 @@ export interface ProgrammingGitPushResult {
   auth_required?: boolean
   auth_failed?: boolean
   auth_mode?: 'http' | 'ssh'
+  username?: string
+  credentials_saved?: boolean
   remote_url?: string
   /** A refusal or authentication failure; local commits remain available. */
   detail?: string
@@ -299,12 +301,12 @@ export function runProgrammingCommand(sessionId: string, data: { command: string
 }
 
 export interface ProgrammingWebPreview {
-  status: 'ready' | 'not_running' | 'starting' | 'start_failed' | 'paused' | 'unsupported' | 'setup_required' | 'unreachable' | 'error'
+  status: 'ready' | 'not_running' | 'sandbox_not_running' | 'sandbox_unconfigured' | 'sandbox_start_failed' | 'project_missing' | 'starting' | 'start_failed' | 'paused' | 'unsupported' | 'setup_required' | 'unreachable' | 'error'
   url?: string
   preview_id?: string
   port?: number
   detail?: string
 }
-export function discoverProgrammingWebPreview(sessionId: string, data: { start?: boolean; preview_id?: string } = {}) {
-  return post<{ success: boolean; data: ProgrammingWebPreview }>(`${base(sessionId)}/web-preview`, data, { timeout: 45_000 })
+export function discoverProgrammingWebPreview(sessionId: string, data: { start?: boolean; preview_id?: string; agent_id?: string; agent_source_tenant_id?: string | number } = {}) {
+  return post<{ success: boolean; data: ProgrammingWebPreview }>(`${base(sessionId)}/web-preview`, data, { timeout: data.start ? 150_000 : 45_000 })
 }

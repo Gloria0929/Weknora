@@ -221,18 +221,37 @@ func (h *ProgrammingHandler) GitPush(c *gin.Context) {
 		return
 	}
 	username := strings.TrimSpace(req.Username)
-	if req.RemoteURL != target || (mode == "http" && username == "" && req.Password == "") || (mode == "ssh" && !req.UseSSH) {
+	suppliedCredentials := username != "" || req.Password != ""
+	usingSavedCredentials := false
+	askForAuth := func(expired bool, detail string) {
 		c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{
-			"pushed": false, "auth_required": true, "auth_mode": mode, "remote_url": target,
+			"pushed": false, "auth_required": true, "auth_failed": expired,
+			"auth_mode": mode, "remote_url": target, "username": username, "detail": detail,
 		}})
+	}
+	if (req.RemoteURL != "" || suppliedCredentials || req.UseSSH) && req.RemoteURL != target {
+		askForAuth(false, "the remote URL changed before authentication")
 		return
 	}
+	if mode == "http" && !suppliedCredentials {
+		savedName, savedPassword, saved := h.readSandboxGitCredential(ctx, sessionID, workdir, target)
+		if !saved {
+			askForAuth(false, "")
+			return
+		}
+		username, req.Password = savedName, savedPassword
+		usingSavedCredentials = true
+	} else if mode == "ssh" && !req.UseSSH {
+		askForAuth(false, "")
+		return
+	}
+
 	env := map[string]string{
 		// Prompts are disabled so a push can never block waiting for input on a
 		// terminal nobody is watching. Askpass is deliberately left unset: a
 		// program that fails to answer only replaces Git's own diagnosis of the
-		// server's rejection with its own error, and the sandbox has no
-		// credentials to offer anyway.
+		// server's rejection with its own error. Credentials come from the
+		// dialog or this session's private store instead.
 		"GIT_TERMINAL_PROMPT": "0",
 		// Belt and braces: if some other variable still turns tracing on, keep
 		// credential material out of the output.
@@ -336,15 +355,29 @@ func (h *ProgrammingHandler) GitPush(c *gin.Context) {
 				detail = "git push was refused"
 			}
 		}
+		if usingSavedCredentials && authFailed {
+			h.forgetSandboxGitCredential(ctx, sessionID, workdir, target, username)
+			askForAuth(true, detail)
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"pushed": false, "detail": detail, "auth_failed": authFailed}})
 		return
 	}
-	// The accepted account is the best author name available for this repository.
-	// Recording it saves the user from configuring an identity before the next
-	// commit; an existing name is never overwritten (best-effort, a failure here
-	// must not turn a successful push into an error).
+	successData := gin.H{"pushed": true}
 	if mode == "http" && username != "" {
+		remembered := h.rememberSandboxGitCredential(ctx, sessionID, workdir, target, username, req.Password)
+		successData["credentials_saved"] = remembered
+		if !remembered {
+			successData["detail"] = "推送成功，但未能保存沙箱凭据，下次推送可能需要重新输入。"
+		}
 		h.recordRepoAuthorName(ctx, sessionID, workdir, username)
+	}
+	warn := func(detail string) {
+		if previous, ok := successData["detail"].(string); ok && previous != "" {
+			detail = previous + " " + detail
+		}
+		successData["detail"] = detail
+		c.JSON(http.StatusOK, gin.H{"success": true, "data": successData})
 	}
 	if setUpstream {
 		// Using a literal URL above must not turn branch.remote into that URL:
@@ -355,8 +388,7 @@ func (h *ProgrammingHandler) GitPush(c *gin.Context) {
 			_, _, configCode, configErr := h.execGit(ctx, sessionID, workdir,
 				"config --local "+shellQuotePOSIX(setting.key)+" "+shellQuotePOSIX(setting.value), 10*time.Second)
 			if configErr != nil || configCode != 0 {
-				c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"pushed": true,
-					"detail": "pushed successfully, but upstream tracking could not be saved"}})
+				warn("pushed successfully, but upstream tracking could not be saved")
 				return
 			}
 		}
@@ -372,12 +404,11 @@ func (h *ProgrammingHandler) GitPush(c *gin.Context) {
 		_, _, updateCode, updateErr := h.execGit(ctx, sessionID, workdir,
 			"update-ref "+shellQuotePOSIX(tracking[2])+" "+shellQuotePOSIX(pushedSHA), 10*time.Second)
 		if updateErr != nil || updateCode != 0 {
-			c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"pushed": true,
-				"detail": "pushed successfully, but the local remote-tracking ref could not be updated"}})
+			warn("pushed successfully, but the local remote-tracking ref could not be updated")
 			return
 		}
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"pushed": true}})
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": successData})
 }
 
 // recordRepoAuthorName stores the account that just authenticated a push as the

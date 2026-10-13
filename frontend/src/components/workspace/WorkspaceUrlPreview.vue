@@ -82,7 +82,9 @@
       <h3>
         {{
           t(
-            busy
+            starting || result?.status === 'starting'
+              ? "workspace.autoPreviewStarting"
+              : busy
               ? "workspace.autoPreviewDetecting"
               : "workspace.autoPreviewTitle",
           )
@@ -93,19 +95,19 @@
         <summary>{{ t("workspace.previewDetails") }}</summary>
         <pre>{{ result.detail }}</pre>
       </details>
-      <div v-if="!busy" class="url-actions">
+      <div class="url-actions">
         <button
-          v-if="
-            result?.status === 'not_running' ||
-            result?.status === 'start_failed'
-          "
+          v-if="canStart || starting"
           type="button"
+          :disabled="busy"
+          :title="t('workspace.startPreviewHint')"
           @click="refresh(true)"
         >
-          {{ t("workspace.startPreview") }}
+          <t-icon v-if="starting" name="loading" size="12px" class="spinning" />
+          {{ t(starting ? 'workspace.autoPreviewStarting' : sandboxNeedsStart ? 'workspace.startSandboxPreview' : 'workspace.startPreview') }}
         </button>
-        <button type="button" @click="refresh()">
-          {{ t("workspace.retry") }}
+        <button type="button" :disabled="busy" :title="t('workspace.previewRecheckHint')" @click="reload()">
+          {{ t('workspace.previewRecheck') }}
         </button>
         <button
           v-if="
@@ -120,6 +122,7 @@
         </button>
         <button
           type="button"
+          :disabled="busy"
           @click="emit('ask', t('workspace.startUrlPreviewPrompt'))"
         >
           {{ t("workspace.fix") }}
@@ -155,6 +158,8 @@ const props = defineProps<{
   sessionId: string;
   active: boolean;
   revision?: number;
+  agentId?: string;
+  agentSourceTenantId?: string | number | null;
 }>();
 const emit = defineEmits<{ ask: [prompt: string]; "open-terminal": [] }>();
 const { t } = useI18n();
@@ -162,25 +167,39 @@ const root = ref<HTMLElement | null>(null);
 const error = ref("");
 const mobile = ref(false),
   fullscreen = ref(false);
-const { result, currentUrl, busy, frameKey, refresh, reload } =
+const agent = computed(() => ({
+  agent_id: props.agentId,
+  agent_source_tenant_id: props.agentSourceTenantId || undefined,
+}));
+const { result, currentUrl, busy, starting, frameKey, refresh, reload } =
   useWorkspaceWebPreview(
     toRef(props, "sessionId"),
     toRef(props, "active"),
     toRef(props, "revision"),
+    undefined,
+    agent,
   );
+const sandboxNeedsStart = computed(() => ['sandbox_not_running', 'sandbox_start_failed', 'paused'].includes(result.value?.status || ''));
+const canStart = computed(() => sandboxNeedsStart.value || ['not_running', 'start_failed'].includes(result.value?.status || ''));
 const statusMessage = computed(() =>
   t(
-    busy.value
+    starting.value
+      ? "workspace.startPreviewHint"
+      : busy.value
       ? "workspace.autoPreviewDetectingHint"
       : (
           {
             not_running: "workspace.autoPreviewWaiting",
+            sandbox_not_running: "workspace.autoPreviewSandboxMissing",
+            sandbox_start_failed: "workspace.autoPreviewSandboxStartFailed",
+            sandbox_unconfigured: "workspace.autoPreviewSandboxUnconfigured",
+            project_missing: "workspace.autoPreviewProjectMissing",
             paused: "workspace.autoPreviewPaused",
             unsupported: "workspace.autoPreviewUnsupported",
             setup_required: "workspace.autoPreviewSetup",
             unreachable: "workspace.autoPreviewUnreachable",
             start_failed: "workspace.previewStartFailed",
-            starting: "workspace.autoPreviewDetectingHint",
+            starting: "workspace.autoPreviewStartingHint",
             error: "workspace.autoPreviewRetrying",
             ready: "workspace.autoPreviewWaiting",
           } as const
@@ -348,6 +367,8 @@ summary:focus-visible {
   font: inherit;
   font-size: var(--app-text-sm);
 }
+.url-empty button:disabled { opacity: 0.5; cursor: not-allowed; }
+.url-actions button { display: inline-flex; align-items: center; gap: 5px; }
 .url-stage {
   flex: 1;
   min-height: 0;

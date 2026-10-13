@@ -48,9 +48,12 @@ const (
 // terminal lifecycle, so the programming UI cannot accidentally escape those
 // existing authorization rules.
 type ProgrammingHandler struct {
-	previewLeases *previewLeaseStore
-	sessions      interfaces.SessionService
-	workspace     *service.PinnedSessionSandbox
+	previewLeases  *previewLeaseStore
+	sessions       interfaces.SessionService
+	workspace      *service.PinnedSessionSandbox
+	previewStarter *service.SandboxTerminalService
+	previewAgents  interfaces.CustomAgentService
+	previewShares  interfaces.AgentShareService
 }
 
 func NewProgrammingHandler(
@@ -58,6 +61,13 @@ func NewProgrammingHandler(
 	workspace *service.PinnedSessionSandbox,
 ) *ProgrammingHandler {
 	return &ProgrammingHandler{sessions: sessions, workspace: workspace}
+}
+
+func NewProgrammingHandlerWithPreview(sessions interfaces.SessionService, workspace *service.PinnedSessionSandbox,
+	starter *service.SandboxTerminalService, agents interfaces.CustomAgentService, shares interfaces.AgentShareService) *ProgrammingHandler {
+	h := NewProgrammingHandler(sessions, workspace)
+	h.previewStarter, h.previewAgents, h.previewShares = starter, agents, shares
+	return h
 }
 
 type programmingFileRequest struct {

@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/application/service"
 	"github.com/Tencent/WeKnora/internal/sandbox"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/gin-gonic/gin"
@@ -247,16 +248,28 @@ func previewPublicBase(request *http.Request) (*url.URL, error) {
 }
 
 func (h *ProgrammingHandler) DiscoverWebPreview(c *gin.Context) {
-	if _, ok := h.loadOwnedSession(c); !ok {
+	session, ok := h.loadOwnedSession(c)
+	if !ok {
 		return
 	}
 	var request struct {
-		Start     bool   `json:"start"`
-		PreviewID string `json:"preview_id"`
+		Start               bool        `json:"start"`
+		PreviewID           string      `json:"preview_id"`
+		AgentID             string      `json:"agent_id"`
+		AgentSourceTenantID json.Number `json:"agent_source_tenant_id"`
 	}
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.Status(http.StatusBadRequest)
 		return
+	}
+	sourceTenantID := uint64(0)
+	if raw := string(request.AgentSourceTenantID); raw != "" {
+		var parseErr error
+		sourceTenantID, parseErr = strconv.ParseUint(raw, 10, 64)
+		if parseErr != nil {
+			c.Status(http.StatusBadRequest)
+			return
+		}
 	}
 	app, err := url.Parse(c.GetHeader("Origin"))
 	if err != nil || app == nil || (app.Scheme != "http" && app.Scheme != "https") || app.Host == "" || app.User != nil {
@@ -270,11 +283,46 @@ func (h *ProgrammingHandler) DiscoverWebPreview(c *gin.Context) {
 	}
 	ctx := c.Request.Context()
 	sessionID := programmingSessionID(c)
+	if h.workspace == nil {
+		c.JSON(200, gin.H{"success": true, "data": gin.H{"status": "unsupported"}})
+		return
+	}
+	if request.Start && h.previewStarter != nil {
+		pin := service.SandboxPin{}
+		// Existing pins stay authoritative, including for shared agents and
+		// sessions whose selected agent was changed since sandbox creation.
+		if session.SandboxConfigID == "" {
+			var agent *types.CustomAgent
+			if sourceTenantID == 0 && h.previewAgents != nil {
+				agent, _ = h.previewAgents.GetAgentByID(ctx, request.AgentID)
+			}
+			if agent == nil && h.previewShares != nil {
+				tenantID, _ := types.TenantIDFromContext(ctx)
+				agent, _ = h.previewShares.GetSharedAgentForTenant(ctx, tenantID, types.TenantRoleFromContext(ctx), request.AgentID, sourceTenantID)
+			}
+			if agent == nil || strings.TrimSpace(agent.Config.SandboxConfigID) == "" {
+				c.JSON(200, gin.H{"success": true, "data": gin.H{"status": "sandbox_unconfigured"}})
+				return
+			}
+			pin = service.SandboxPin{ConfigID: strings.TrimSpace(agent.Config.SandboxConfigID), TenantID: agent.TenantID}
+		}
+		if err := h.previewStarter.EnsureSessionWorkspace(ctx, sessionID, pin); err != nil {
+			status := "sandbox_start_failed"
+			if errors.Is(err, sandbox.ErrPreviewUnsupported) {
+				status = "unsupported"
+			}
+			c.JSON(200, gin.H{"success": true, "data": gin.H{"status": status}})
+			return
+		}
+	}
 	preview, err := h.workspace.DiscoverWebPreview(ctx, sessionID, request.Start)
 	if err != nil {
 		status := "error"
+		if request.Start {
+			status = "start_failed"
+		}
 		if errors.Is(err, sandbox.ErrNoLiveSessionSandbox) {
-			status = "not_running"
+			status = "sandbox_not_running"
 		}
 		if errors.Is(err, sandbox.ErrSandboxPaused) {
 			status = "paused"
@@ -291,7 +339,7 @@ func (h *ProgrammingHandler) DiscoverWebPreview(c *gin.Context) {
 	}
 	sandboxID, ok := h.workspace.BoundSandboxID(ctx, sessionID)
 	if !ok {
-		c.JSON(200, gin.H{"success": true, "data": gin.H{"status": "not_running"}})
+		c.JSON(200, gin.H{"success": true, "data": gin.H{"status": "sandbox_not_running"}})
 		return
 	}
 	userID, _ := types.UserIDFromContext(ctx)

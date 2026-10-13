@@ -158,7 +158,7 @@ async function savePolicy(name: string, field: 'enabled' | 'require_approval', v
     if (field === 'enabled') await setMCPToolEnabled(props.serviceId, name, value)
     else await setMCPToolApproval(props.serviceId, name, value)
     if (current === generation) policies.value.set(name, { ...policy(name), [field]: value })
-  } catch { if (current === generation) MessagePlugin.error(t('mcpMetadata.policySaveFailed')) }
+  } catch (error: any) { if (current === generation) MessagePlugin.error(error?.message || t('mcpMetadata.policySaveFailed')) }
   finally {
     if (current === generation) { busy.value.delete(name); emit('busy', busy.value.size > 0) }
   }

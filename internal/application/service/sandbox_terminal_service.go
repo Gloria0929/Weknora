@@ -217,6 +217,31 @@ func (s *SandboxTerminalService) provisionOnManager(
 	return nil
 }
 
+// EnsureSessionWorkspace creates/resumes only after an explicit start action,
+// following the original pin before the newly selected agent configuration.
+// No PTY or desktop is opened to prepare a web preview.
+func (s *SandboxTerminalService) EnsureSessionWorkspace(ctx context.Context, sessionID string, provision SandboxPin) error {
+	if s == nil {
+		return sandbox.ErrNoLiveSessionSandbox
+	}
+	mgr, _, err := s.resolveSessionManager(ctx, sessionID)
+	if errors.Is(err, sandbox.ErrNoLiveSessionSandbox) && !provision.IsZero() {
+		tenantID, _ := types.TenantIDFromContext(ctx)
+		mgr, _, err = resolveSandboxForExecution(ctx, s.resolver, s.fallback, s.pinner,
+			provision.TenantOr(tenantID), sessionID, provision.ConfigID, s.policy)
+	}
+	if err != nil {
+		return err
+	}
+	if mgr == nil || !sandbox.IsNamedSandboxBackendType(string(mgr.GetType())) {
+		return sandbox.ErrPreviewUnsupported
+	}
+	if _, ok := mgr.(sandbox.SessionPreviewTransport); !ok {
+		return sandbox.ErrPreviewUnsupported
+	}
+	return s.provisionOnManager(ctx, mgr, sessionID)
+}
+
 // openOnManager opens a terminal on an already-resolved manager.
 func (s *SandboxTerminalService) openOnManager(
 	ctx context.Context,

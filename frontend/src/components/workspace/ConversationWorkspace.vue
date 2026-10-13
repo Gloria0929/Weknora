@@ -1748,8 +1748,8 @@ async function submitCommit(root: string, pushAfter = false, retryPaths?: string
   }
 }
 
-// Credentials exist only for the current push dialog; never persist them in
-// localStorage, Git config, or the author identity used by local commits.
+// The browser retains credentials only while submitting. Verified credentials
+// are remembered by Git in the current session sandbox for later pushes.
 const pushAuthForRepo = ref<string | null>(null);
 const pushAuthMode = ref<'http' | 'ssh'>('http');
 const pushAuthRemote = ref('');
@@ -2040,10 +2040,10 @@ async function submitPush(root: string, fromCommit = false, credentials?: Progra
       pushAuthForRepo.value = root;
       pushAuthMode.value = result.auth_mode === 'ssh' ? 'ssh' : 'http';
       pushAuthRemote.value = result.remote_url || '';
-      pushAuthUsername.value = '';
+      pushAuthUsername.value = result.username || '';
       pushAuthPassword.value = '';
       pushAuthFromCommit.value = fromCommit;
-      pushAuthError.value = credentials ? t('workspace.pushAuthRemoteChanged') : '';
+      pushAuthError.value = result.auth_failed ? t('workspace.pushAuthExpired') : credentials ? t('workspace.pushAuthRemoteChanged') : '';
       if (fromCommit && !credentials) MessagePlugin.success(t('workspace.commitSuccess'));
       return;
     }

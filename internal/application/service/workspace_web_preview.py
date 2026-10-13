@@ -12,6 +12,23 @@ def project_server_environment():
     return env
 
 
+def project_start_command(directory, command, state_dir):
+    install = None
+    pending = state_dir / ('dependencies-' + hashlib.sha256(str(directory).encode()).hexdigest()[:16] + '.pending')
+    if command[0] in ('npm', 'pnpm', 'yarn') and (pending.exists() or not (Path(directory) / 'node_modules').is_dir()):
+        manager = command[0]
+        install = [manager, 'ci' if manager == 'npm' and (Path(directory) / 'package-lock.json').exists() else 'install']
+        if manager == 'npm':
+            install += ['--no-audit', '--no-fund']
+    if not install:
+        return command
+    pending.write_text(command[0])
+    # A fixed wrapper keeps the PID alive during installation, then becomes
+    # the project process. Polling observes it without launching another copy.
+    script = "import json,os,subprocess,sys; o=json.loads(sys.argv[1]); r=subprocess.run(o['install'],timeout=180); sys.exit(r.returncode) if r.returncode else None; os.unlink(o['pending']); os.execvpe(o['command'][0],o['command'],os.environ)"
+    return [sys.executable, '-u', '-c', script, json.dumps({'install': install, 'command': command, 'pending': str(pending)})]
+
+
 def web_preview(options):
     root = Path(options['root']).resolve()
     state_dir = Path.home() / '.cache/weknora-preview' / hashlib.sha256(str(root).encode()).hexdigest()[:16]
@@ -30,19 +47,20 @@ def web_preview(options):
                 pass
         RESERVED_PORTS.update(item['relay_port'] for item in relays)
         url = running_url()
+        pid_file = state_dir / 'server.pid'
+        pid = pid_file.read_text().strip() if pid_file.exists() else ''
+        log_path = state_dir / 'server.log'
         if not url and options.get('start'):
             project = project_command(root)
             if not project:
-                return {'status': 'not_running'}
-            pid_file = state_dir / 'server.pid'
-            pid = pid_file.read_text().strip() if pid_file.exists() else ''
-            log_path = state_dir / 'server.log'
+                return {'status': 'project_missing'}
             process = None
             if not alive(pid):
                 directory, command = project
                 with log_path.open('w') as log:
-                    process = subprocess.Popen(command, cwd=directory, stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True, env=project_server_environment())
+                    process = subprocess.Popen(project_start_command(directory, command, state_dir), cwd=directory, stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True, env=project_server_environment())
                 pid_file.write_text(str(process.pid))
+                pid = str(process.pid)
             deadline = time.monotonic() + 25
             while time.monotonic() < deadline:
                 url = running_url()
@@ -50,9 +68,13 @@ def web_preview(options):
                     break
                 time.sleep(.5)
             if not url:
-                return {'status': 'start_failed', 'detail': log_tail(log_path)}
+                return {'status': 'starting' if alive(pid) else 'start_failed', 'detail': log_tail(log_path)}
         if not url:
-            return {'status': 'not_running'}
+            if alive(pid):
+                return {'status': 'starting', 'detail': log_tail(log_path)}
+            if pid and log_path.exists():
+                return {'status': 'start_failed', 'detail': log_tail(log_path)}
+            return {'status': 'project_missing' if not project_command(root) else 'not_running'}
         port = urlsplit(url).port
         config_file = state_dir / ('relay-%d.json' % port)
         config = next((item for item in relays if item['port'] == port and alive(item.get('pid'))), None)

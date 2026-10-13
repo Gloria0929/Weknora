@@ -143,8 +143,8 @@ const loadServices = async () => {
   try {
     services.value = await listMCPServices()
     emit('count', services.value.length)
-  } catch (error) {
-    MessagePlugin.error(t('mcpSettings.toasts.loadFailed'))
+  } catch (error: any) {
+    MessagePlugin.error(error?.message || t('mcpSettings.toasts.loadFailed'))
     console.error('Failed to load MCP services:', error)
   } finally {
     loading.value = false
@@ -195,8 +195,8 @@ const handleToggleEnabled = async (service: MCPService) => {
     await updateMCPService(service.id, { enabled })
     service.enabled = enabled
     MessagePlugin.success(enabled ? t('mcpSettings.toasts.enabled') : t('mcpSettings.toasts.disabled'))
-  } catch (error) {
-    MessagePlugin.error(t('mcpSettings.toasts.updateStateFailed'))
+  } catch (error: any) {
+    MessagePlugin.error(error?.message || t('mcpSettings.toasts.updateStateFailed'))
     console.error('Failed to update MCP service:', error)
   } finally {
     togglingIds.value.delete(service.id)
@@ -214,8 +214,8 @@ const handleDelete = (service: MCPService) => {
         await deleteMCPService(service.id)
         MessagePlugin.success(t('mcpSettings.toasts.deleted'))
         loadServices()
-      } catch (error) {
-        MessagePlugin.error(t('mcpSettings.toasts.deleteFailed'))
+      } catch (error: any) {
+        MessagePlugin.error(error?.message || t('mcpSettings.toasts.deleteFailed'))
         console.error('Failed to delete MCP service:', error)
       }
     }

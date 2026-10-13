@@ -539,7 +539,7 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	must(container.Provide(handler.NewFAQHandler))
 	must(container.Provide(handler.NewTagHandler))
 	must(container.Provide(session.NewHandler))
-	must(container.Provide(handler.NewProgrammingHandler))
+	must(container.Provide(handler.NewProgrammingHandlerWithPreview))
 	must(container.Provide(handler.NewProjectHandler))
 	must(container.Provide(handler.NewMessageHandler))
 	must(container.Provide(handler.NewMessageSuggestionHandler))

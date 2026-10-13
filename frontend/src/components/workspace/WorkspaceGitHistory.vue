@@ -189,7 +189,7 @@ function patchLines(patch: string) {
 </script>
 
 <style scoped lang="less">
-.git-history { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin-top: 8px; }
+.git-history { --git-history-accent: var(--td-success-color); flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin-top: 8px; }
 .git-history__header { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
 .git-history__toggle { display: flex; flex: 1; align-items: center; gap: 6px; min-width: 0; border: 0; padding: 2px 0; background: transparent; color: var(--td-text-color-secondary); font: inherit; font-size: 12px; font-weight: 600; text-align: left; cursor: pointer; }
 .git-history__count { padding: 0 5px; border-radius: 4px; background: var(--td-bg-color-secondarycontainer); font-size: 10px; line-height: 17px; font-variant-numeric: tabular-nums; }
@@ -199,16 +199,17 @@ function patchLines(patch: string) {
 .git-history button:focus-visible, .git-history summary:focus-visible { outline: 2px solid var(--td-brand-color); outline-offset: -2px; }
 .git-history__content { flex: 1 1 auto; min-height: 0; overflow: auto; scrollbar-width: thin; }
 .git-history__list, .git-history__files { margin: 0; padding: 0; list-style: none; }
-.git-history__item { position: relative; }
-.git-history__item::before { position: absolute; top: 16px; bottom: -16px; left: 11px; width: 1px; background: var(--td-brand-color); opacity: .65; content: ''; pointer-events: none; }
-.git-history__item:last-child::before { bottom: 16px; }
-.git-history__row { position: relative; display: flex; align-items: center; gap: 7px; min-height: 32px; padding: 2px 4px 2px 0; border-radius: 4px; cursor: pointer; list-style: none; }
+.git-history__row { position: relative; display: flex; align-items: center; gap: 7px; min-height: 36px; padding: 2px 4px 2px 0; border-radius: 4px; cursor: pointer; list-style: none; }
+.git-history__row::before, .git-history__row::after { position: absolute; z-index: 1; left: 11px; width: 1px; background: var(--git-history-accent); opacity: .7; content: ''; pointer-events: none; }
+.git-history__row::before { top: 0; bottom: calc(50% + 10px); }
+.git-history__row::after { top: calc(50% + 10px); bottom: 0; }
+.git-history__item:first-child .git-history__row::before, .git-history__item:last-child .git-history__row::after { display: none; }
 .git-history__row::-webkit-details-marker { display: none; }
 .git-history__row:hover, .git-history__entry[open] > .git-history__row { background: var(--td-bg-color-container-hover); }
-.git-history__node { display: flex; align-items: center; justify-content: center; flex: none; width: 23px; height: 24px; color: var(--td-brand-color); }
-.git-history__node i { width: 8px; height: 8px; border-radius: 50%; background: var(--td-brand-color); }
-.is-head .git-history__node i { width: 11px; height: 11px; border: 2px solid var(--td-brand-color); background: var(--td-bg-color-container); }
-.git-history__entry[open] .git-history__node i { width: 10px; height: 10px; }
+.git-history__node { position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; flex: none; width: 23px; height: 24px; color: var(--git-history-accent); }
+.git-history__node i { width: 12px; height: 12px; border-radius: 50%; background: var(--git-history-accent); }
+.git-history__entry[open] .git-history__node i { width: 14px; height: 14px; }
+.git-history__item.is-head .git-history__node i { width: 16px; height: 16px; border: 2px solid var(--git-history-accent); background: var(--td-bg-color-container); }
 .git-history__subject { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; color: var(--td-text-color-primary); }
 .git-history__author { min-width: 0; max-width: 100px; flex-shrink: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--td-text-color-placeholder); font-size: 12px; }
 .git-history__actions { display: inline-flex; margin-left: auto; flex: none; opacity: 0; }
@@ -219,7 +220,7 @@ function patchLines(patch: string) {
 .git-history__state { flex: none; font-size: 10px; color: var(--td-text-color-placeholder); }
 .git-history__state.is-outgoing { color: var(--td-warning-color); }
 .git-history__state.is-incoming { color: var(--td-brand-color); }
-.git-history__expanded { position: relative; margin-left: 11px; border-left: 2px solid var(--td-brand-color); padding: 2px 0 4px 17px; }
+.git-history__expanded { position: relative; margin-left: 11px; border-left: 2px solid transparent; padding: 2px 0 4px 17px; }
 .git-history__file { display: flex; align-items: center; gap: 7px; width: 100%; min-height: 31px; border: 0; border-radius: 3px; padding: 3px 8px 3px 0; background: transparent; color: var(--td-text-color-primary); font: inherit; text-align: left; cursor: pointer; }
 .git-history__file:hover, .git-history__file.is-selected { background: var(--td-bg-color-container-hover); }
 .git-history__file-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 18px; height: 19px; font-size: 10px; font-weight: 700; color: var(--td-text-color-placeholder); }
