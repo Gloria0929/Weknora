@@ -55,12 +55,13 @@ var versionedSQLiteColumns = map[string][]string{
 		"mode", "project_id",       // 000031
 		"project_folder_id", // 000032
 	},
-	"tenant_invitations": {"token", "accepted_count"},        // 000054
-	"embed_channels":     {"allow_memory"},                   // 000060
-	"im_channels":        {"locale"},                         // 000030
-	"mcp_oauth_tokens":   {"principal_type", "principal_id"}, // 000064
-	"mcp_tool_approvals": {"enabled"},                        // 000091
-	"message_artifacts":  {"deleted_at"},                     // 000107
+	"tenant_invitations":  {"token", "accepted_count"},            // 000054
+	"embed_channels":      {"allow_memory"},                       // 000060
+	"im_channels":         {"locale"},                             // 000030
+	"mcp_oauth_tokens":    {"principal_type", "principal_id"},     // 000064
+	"mcp_tool_approvals":  {"enabled"},                            // 000091
+	"message_artifacts":   {"deleted_at"},                         // 000107
+	"workspace_test_runs": {"runner_started", "cancel_requested"}, // 000033
 	"tenant_skills": {
 		"envs", "served", "catalog_id", "install_session_id", "install_message_id",
 	}, // 000028

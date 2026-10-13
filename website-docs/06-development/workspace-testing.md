@@ -57,7 +57,7 @@ Agent 的 `workspace_tests` 工具支持 discover/run/status/history/cancel，�
 
 运行记录保存于 `workspace_test_runs`，列表返回最近 30 次；报告复用 `message_artifacts` 和既有文件存储。会话所有权同时在接口和服务校验。报告发布采用事务，重复状态查询不会重复创建报告。
 
-上线前需重启后端，应用 PostgreSQL `000114` 或 SQLite `000033` 迁移；按原流程构建前端。没有新增前端依赖或单独任务服务。
+上线前需重启后端，应用 PostgreSQL `000115` 或 SQLite `000033` 迁移；按原流程构建前端。PostgreSQL `000115` 为已经执行过早期 `000114` 的数据库补齐运行控制字段，不重建表，也不删除历史报告。没有新增前端依赖或单独任务服务。
 
 ## 验证命令
 
