@@ -20,6 +20,8 @@ import (
 	"github.com/google/uuid"
 )
 
+// The helper normalizes native case durations to integer milliseconds on
+// execution and when reading older snapshots, matching WorkspaceTestResult.
 //go:embed workspace_tests.py
 var workspaceTestsScript string
 

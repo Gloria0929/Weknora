@@ -128,6 +128,38 @@ class WorkspaceTests(unittest.TestCase):
             self.assertEqual(cases[0]['detail'], '<script>alert(1)</script>')
             self.assertEqual(validation.parse_results('tap', report, '10 tests passed'), [])
 
+    def test_fractional_native_durations_are_integer_milliseconds(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp) / 'result.json'
+            fixtures = {
+                'json': {'testResults': [{'name': 'frontend/test.ts', 'assertionResults': [{'fullName': 'case', 'status': 'passed', 'duration': 328.5659089999999}]}]},
+                'node-json': {'cases': [{'name': 'case', 'status': 'passed', 'duration_ms': 328.5659089999999}]},
+                'playwright': {'suites': [{'specs': [{'title': 'case', 'tests': [{'status': 'expected', 'results': [{'duration': 328.5659089999999}]}]}]}]},
+            }
+            for format, payload in fixtures.items():
+                with self.subTest(format=format):
+                    report.write_text(json.dumps(payload))
+                    case = validation.parse_results(format, report, '')[0]
+                    self.assertEqual(case['duration_ms'], 328)
+                    self.assertIs(type(case['duration_ms']), int)
+                    self.assertEqual(case['status'], 'passed')
+
+    def test_status_and_cancel_can_read_old_fractional_duration_snapshots(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rid = str(uuid.uuid4())
+            folder = validation.state_dir(root, rid, True)
+            snapshot = {'status': 'running', 'outcome': 'unknown', 'checks': [{'cases': [{'name': 'completed case', 'status': 'passed', 'duration_ms': 328.5659089999999}]}]}
+            (folder / 'state.json').write_text(json.dumps(snapshot))
+            options = {'root': str(root), 'run_id': rid, 'host': True}
+            for action, status in [('status', 'running'), ('cancel', 'cancelling')]:
+                with self.subTest(action=action):
+                    state = validation.main({**options, 'action': action})
+                    self.assertEqual(state['status'], status)
+                    self.assertEqual(state['checks'][0]['cases'][0]['duration_ms'], 328)
+                    self.assertIs(type(state['checks'][0]['cases'][0]['duration_ms']), int)
+            self.assertTrue((folder / 'cancel').exists())
+
 
 if __name__ == '__main__':
     unittest.main()

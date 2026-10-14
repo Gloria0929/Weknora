@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
@@ -85,6 +86,54 @@ func TestWorkspaceTestRealDetachedRunProducesDownloadableArtifacts(t *testing.T)
 	require.NoError(t, err)
 	require.Len(t, message.Artifacts, 2)
 	require.Len(t, files.saved, 2)
+}
+
+func TestWorkspaceTestOldFractionalDurationsCanCompleteAndCancel(t *testing.T) {
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Skip("Python runtime unavailable")
+	}
+	for _, status := range []string{"completed", "cancelled"} {
+		t.Run(status, func(t *testing.T) {
+			svc, run, files, ctx := workspaceTestFixture(t)
+			root := t.TempDir()
+			mgr := &localWorkspaceTestManager{root: root}
+			svc.workspace = NewPinnedSessionSandbox(stubPinReader{configID: "cfg", tenantID: 7}, &stubTenantSandboxResolver{mgr: mgr}, nil, nil)
+			run.Status = "running"
+			run.RunnerStarted = true
+			run.Result = types.WorkspaceTestResult{Status: "running", Outcome: "unknown", Checks: []types.WorkspaceTestCheck{}}
+			require.NoError(t, svc.repo.Save(ctx, run))
+			folder := filepath.Join(root, ".weknora", "test-runs", run.ID)
+			require.NoError(t, os.MkdirAll(folder, 0700))
+			// Reproduce checks.1.cases.0 from the old runner, which may have
+			// finished in the sandbox while Go still shows it as running.
+			snapshot := `{"status":"STATUS","outcome":"unknown","checks":[{"id":"backend","cases":[]},{"id":"frontend","status":"passed","cases":[{"name":"real assertion","status":"passed","duration_ms":328.5659089999999}]}]}`
+			require.NoError(t, os.WriteFile(filepath.Join(folder, "state.json"), []byte(strings.Replace(snapshot, "STATUS", status, 1)), 0600))
+			var got *types.WorkspaceTestRun
+			var err error
+			if status == "cancelled" {
+				got, err = svc.Cancel(ctx, run.SessionID, run.ID)
+				require.FileExists(t, filepath.Join(folder, "cancel"))
+			} else {
+				got, err = svc.Refresh(ctx, run.SessionID, run.ID)
+			}
+			require.NoError(t, err)
+			require.Equal(t, status, got.Status)
+			require.False(t, got.Active())
+			require.Equal(t, int64(328), got.Result.Checks[1].Cases[0].DurationMs)
+			require.NotEmpty(t, got.ReportMessageID)
+			require.Len(t, files.saved, 2)
+			stored, err := svc.repo.Get(ctx, run.TenantID, run.UserID, run.SessionID, run.ID)
+			require.NoError(t, err)
+			require.Equal(t, int64(328), stored.Result.Checks[1].Cases[0].DurationMs)
+			for _, data := range files.saved {
+				if len(data) > 0 && data[0] == '{' {
+					var report types.WorkspaceTestRun
+					require.NoError(t, json.Unmarshal(data, &report))
+					require.Equal(t, int64(328), report.Result.Checks[1].Cases[0].DurationMs)
+				}
+			}
+		})
+	}
 }
 
 func TestWorkspaceTestReportPersistsToSessionArtifactsWithoutLiveSandbox(t *testing.T) {

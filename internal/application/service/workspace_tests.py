@@ -312,6 +312,19 @@ def test_command(project, target, directory, report):
     return [project['manager'], 'run', 'test'], 'custom'
 
 
+def normalize_case_durations(cases):
+    # Native runners such as Vitest report fractional milliseconds. The API
+    # stores integer milliseconds; apply the same conversion to old snapshots
+    # so a run already in progress can still be polled or cancelled after an
+    # upgrade. Invalid timing metadata must not discard assertion evidence.
+    for case in cases:
+        try:
+            case['duration_ms'] = max(0, int(case.get('duration_ms') or 0))
+        except (TypeError, ValueError, OverflowError):
+            case['duration_ms'] = 0
+    return cases
+
+
 def parse_results(format, report, output):
     cases = []
     if format == 'node-json':
@@ -358,7 +371,7 @@ def parse_results(format, report, output):
                 walk(child)
         for suite in data.get('suites', []):
             walk(suite)
-    return cases[:1000]
+    return normalize_case_durations(cases[:1000])
 
 
 def connectivity(services):
@@ -514,6 +527,8 @@ def main(options):
     if action == 'cancel':
         (run_dir / 'cancel').touch()
     state = load(run_dir / 'state.json', {'status': 'error', 'outcome': 'unknown', 'detail': 'Run state is unavailable.'})
+    for check in state.get('checks', []):
+        normalize_case_durations(check.get('cases', []))
     state['log'] = read_log(run_dir / 'output.log')
     if (run_dir / 'cancel').exists() and state.get('status') in ('queued', 'preparing', 'running'):
         state['status'] = 'cancelling'
