@@ -1,6 +1,6 @@
 import { fileURLToPath, URL } from 'node:url'
 import { resolve, dirname } from 'node:path'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { defineConfig, type Plugin } from 'vite'
@@ -10,7 +10,7 @@ import vueJsx from '@vitejs/plugin-vue-jsx'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
 
-const pkg = require('./package.json') as { version?: string }
+const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')) as { version?: string }
 const FRONTEND_VERSION = pkg.version ?? 'unknown'
 
 function resolveFrontendCommit(): string {
