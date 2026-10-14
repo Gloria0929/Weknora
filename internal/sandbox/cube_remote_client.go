@@ -1427,6 +1427,12 @@ func normalizeCubeError(op string, err error) error {
 			kind = RemoteErrorKindTimeout
 		case errors.As(err, &netErr):
 			kind = RemoteErrorKindUnavailable
+		case op == "ListDir" && strings.HasPrefix(err.Error(), "failed to list ") &&
+			(strings.Contains(err.Error(), "path not found:") ||
+				strings.Contains(err.Error(), "no such file or directory")):
+			// The SDK's ListDir returns a plain error for envd failures,
+			// including missing directories removed by workspace rewind.
+			kind = RemoteErrorKindNotFound
 		}
 	}
 	kind = snapshotDeleteKind(op, kind, err.Error())
