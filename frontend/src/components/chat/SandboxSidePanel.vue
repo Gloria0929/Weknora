@@ -130,26 +130,23 @@
             />
           </div>
 
-          <!-- URL previews work independently of the optional desktop connection. -->
+          <!-- Web preview does not require remote desktop capabilities. -->
           <WorkspaceBrowserPreview
-            v-if="desktopMounted && !workspaceGateway"
+            v-if="previewMounted && !workspaceGateway"
             v-show="panel?.activeTab.value === 'preview'"
             :key="sessionId"
             :session-id="sessionId"
             :agent-id="agentId"
             :agent-source-tenant-id="agentSourceTenantId"
-            :enabled="desktopTabVisible"
-            :loading="capabilitiesLoading"
             :active="
               Boolean(
                 panel?.visible.value && panel?.activeTab.value === 'preview',
               )
             "
             :revision="workspaceRevision"
-            class="chat-sandbox-panel__desktop"
+            class="chat-sandbox-panel__preview"
             @ask="emit('ask', $event)"
             @open-terminal="panel?.open('terminal')"
-            @retry="capabilityRefreshRevision++"
           />
         </div>
       </aside>
@@ -177,13 +174,8 @@ import {
 } from "@/composables/useChatSandboxPanel";
 import SandboxTerminal from "@/views/chat/components/SandboxTerminal.vue";
 import WorkspaceBrowserPreview from "@/components/workspace/WorkspaceBrowserPreview.vue";
-import {
-  getProgrammingPreviewCapabilities,
-  type ProgrammingPreviewCapabilities,
-} from "@/api/programming";
 import ChatArtifactsPanel from "@/views/chat/components/ChatArtifactsPanel.vue";
 import PanelResizeHandle from "@/components/PanelResizeHandle.vue";
-import { useChatResourcesStore } from "@/stores/chatResources";
 import type { SessionArtifactItem } from "@/utils/sessionArtifacts";
 
 const props = withDefaults(
@@ -222,17 +214,6 @@ const panel = useChatSandboxPanel();
 watch(() => [props.sessionId, panel?.visible.value, panel?.activeTab.value], () => {
   if (props.sessionId && panel?.visible.value && panel.activeTab.value === 'artifacts') emit('refreshArtifacts')
 });
-const chatResources = useChatResourcesStore();
-const sandboxConfigsReady = ref(false);
-const previewCapabilities = ref<ProgrammingPreviewCapabilities | null>(null);
-const capabilitiesLoading = ref(false);
-const capabilityRefreshRevision = ref(0);
-const agentSandboxSignature = computed(() => {
-  const agent = chatResources.agents.find((item) => item.id === props.agentId);
-  const configId = agent?.config?.sandbox_config_id || "";
-  const cfg = chatResources.sandboxConfigs.find((item) => item.id === configId);
-  return `${configId}:${Boolean(cfg?.config?.desktop_enabled)}`;
-});
 const workspaceMounted = ref(false);
 const isWorkspaceTab = computed(
   () =>
@@ -249,26 +230,6 @@ watch(
   },
   { immediate: true },
 );
-
-// Resolve browser support for the unified preview tab. Shared agents whose
-// sandbox row is not in this workspace still let the
-// backend return DESKTOP_UNSUPPORTED.
-const desktopTabVisible = computed(() => {
-  if (previewCapabilities.value?.pinned)
-    return previewCapabilities.value.desktop_enabled;
-  const agentId = props.agentId?.trim();
-  if (!agentId) return false;
-  const agent = chatResources.agents.find((item) => item.id === agentId);
-  if (!agent) {
-    return chatResources.agents.length > 0;
-  }
-  const configId = agent.config?.sandbox_config_id?.trim();
-  if (!configId) return false;
-  if (!sandboxConfigsReady.value) return false;
-  const cfg = chatResources.sandboxConfigs.find((item) => item.id === configId);
-  if (!cfg) return true;
-  return Boolean(cfg.config?.desktop_enabled);
-});
 
 const tabs = computed(() => {
   const list: Array<{ id: SandboxPanelTab; icon: string; label: string }> = [
@@ -295,11 +256,11 @@ function openMoreTool(option: { value?: unknown }) {
   if (option.value === 'terminal') panel?.open(option.value);
 }
 
-// 终端 / 桌面惰性挂载（首次切到对应 tab 时），面板关闭即销毁（v-if），
+// 终端 / 预览惰性挂载（首次切到对应 tab 时），面板关闭即销毁（v-if），
 // 与 ChatReferencesDrawer 的开合行为一致；会话切换时由 :key 重建。
 const terminalMounted = ref(false);
 const terminalRef = ref<{ focus?: () => void } | null>(null);
-const desktopMounted = ref(false);
+const previewMounted = ref(false);
 
 watch(
   () => [panel?.visible.value, panel?.activeTab.value] as const,
@@ -308,7 +269,7 @@ watch(
       // Drop the lazy-mount flags so reopening on Files does not remount
       // either panel (which would connect and refresh TTL).
       terminalMounted.value = false;
-      desktopMounted.value = false;
+      previewMounted.value = false;
       return;
     }
     if (tab === "terminal") {
@@ -317,57 +278,9 @@ watch(
       return;
     }
     if (tab === "preview") {
-      // Same as the terminal tab: mount runs a lookup-only connect. A
-      // running sandbox attaches; paused or missing stays on the overlay
-      // until the user confirms. Opening the panel must never create or
-      // resume a microVM as a side effect.
-      desktopMounted.value = true;
+      // The web preview checks the workspace without starting a sandbox.
+      previewMounted.value = true;
     }
-  },
-  { immediate: true },
-);
-
-watch(
-  () =>
-    [
-      panel?.visible.value,
-      props.sessionId,
-      props.agentId,
-      props.agentSourceTenantId,
-      props.workspaceRevision,
-      agentSandboxSignature.value,
-      capabilityRefreshRevision.value,
-    ] as const,
-  async ([visible], previous, onCleanup) => {
-    let cancelled = false;
-    onCleanup(() => {
-      cancelled = true;
-    });
-    if (
-      previous?.[1] !== props.sessionId ||
-      previous?.[2] !== props.agentId ||
-      previous?.[3] !== props.agentSourceTenantId ||
-      previous?.[5] !== agentSandboxSignature.value ||
-      previous?.[6] !== capabilityRefreshRevision.value
-    ) previewCapabilities.value = null;
-    if (!visible || props.workspaceGateway) return;
-    // Recheck resource metadata on reopen, agent changes and an explicit retry.
-    // A cached CLI capability must not outlive switching back to a desktop config.
-    const forceResources = !previous?.[0] ||
-      previous?.[2] !== props.agentId ||
-      previous?.[3] !== props.agentSourceTenantId ||
-      previous?.[6] !== capabilityRefreshRevision.value;
-    capabilitiesLoading.value = previewCapabilities.value === null;
-    await Promise.allSettled([
-      chatResources.ensureSandboxConfigs(forceResources).then(() => {
-        if (!cancelled) sandboxConfigsReady.value = true;
-      }),
-      chatResources.ensureAgents(forceResources),
-      getProgrammingPreviewCapabilities(props.sessionId).then((response) => {
-        if (!cancelled) previewCapabilities.value = response.data;
-      }),
-    ]);
-    if (!cancelled) capabilitiesLoading.value = false;
   },
   { immediate: true },
 );
@@ -546,7 +459,7 @@ function resizePanel(delta: number) {
 }
 
 .chat-sandbox-panel__terminal,
-.chat-sandbox-panel__desktop,
+.chat-sandbox-panel__preview,
 .chat-sandbox-panel__artifacts {
   flex: 1;
   min-height: 0;

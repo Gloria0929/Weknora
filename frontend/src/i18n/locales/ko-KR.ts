@@ -4177,33 +4177,12 @@ export default {
       panelTitle: "샌드박스",
       tabArtifacts: "파일",
       tabTerminal: "터미널",
-      tabDesktop: "데스크톱",
       artifactsEmpty: "이 대화에서 생성된 파일이 없습니다",
       artifactScope: "파일 범위",
       artifactsCurrent: "이번 응답",
       artifactsAll: "전체",
       artifactsSearch: "파일 이름 검색",
       artifactsNoMatches: "일치하는 파일이 없습니다",
-      desktopNotStarted:
-        "The desktop is not connected yet. Connecting it attaches to this conversation's sandbox.",
-      desktopStart: "Connect desktop",
-      desktopStarting: "Connecting to the desktop… (3-8 seconds on first use)",
-      desktopUnsupported:
-        "This sandbox config has no desktop. Pick a desktop-image template in the workspace sandbox settings, on a Cube or E2B backend.",
-      desktopBusy:
-        "This conversation already has a desktop open. Only one connection is allowed at a time, otherwise two people share one keyboard and mouse.",
-      desktopStartFailed: "The desktop failed to start. You can retry.",
-      desktopRebuilt:
-        "The sandbox was rebuilt for a skill update, so the previous desktop and any unsaved work are gone. Reconnecting gives you a fresh desktop.",
-      desktopNeedsProvision:
-        "This conversation has no running sandbox. Create and connect starts a new sandbox, billed according to your workspace configuration.",
-      desktopCreateAndStart: "Create and connect",
-      desktopPaused:
-        "This conversation's sandbox is paused. Connecting the desktop resumes it.",
-      desktopDisconnected: "Desktop disconnected",
-      desktopIdleDisconnected:
-        "The desktop disconnected after being idle. The sandbox will pause on its own TTL. You can reconnect.",
-      desktopRetry: "Reconnect",
       notStarted:
         "터미널이 아직 실행되지 않았습니다. 시작하면 이 대화의 샌드박스에 연결하며, 샌드박스가 없거나 일시 중지된 경우 생성하거나 다시 시작합니다.",
       paused:
@@ -6438,8 +6417,7 @@ export default {
       templateSelectHelp:
         "Templates are loaded from this cluster. The saved configuration stores the ID automatically.",
       templateSelectPlaceholder: "Connect to the cluster to load templates",
-      templateLoadHint:
-        "클러스터 연결을 입력한 뒤 새로고침하세요. 공식 CLI 템플릿이 없으면 Hub 이미지로 자동 구축합니다. 데스크톱 템플릿은 용량이 커서 아래 행에서 따로 만들어야 합니다. DNS나 이미지를 바꾼 뒤에는 해당 카드에서 재구축하세요.",
+      templateLoadHint: "Refresh after connecting. Create the standard template if missing; rebuild it after changing DNS.",
       templateLoadFailed: "Failed to load templates",
       standardTemplateProvisioning:
         "The WeKnora standard template is being created. Refresh shortly to see its status.",
@@ -6450,8 +6428,7 @@ export default {
       connectionPassed:
         "Connection verified. Templates below are loaded from this cluster.",
       connectionPassedTitle: "Cluster connected",
-      templateStepHint:
-        "이 단계에서는 클러스터 템플릿을 나열하고, 공식 CLI 이미지가 없으면 Hub에서 구축합니다. 데스크톱(XFCE) 템플릿은 용량이 커서 「만들기」를 눌렀을 때만 구축합니다. DNS나 이미지를 바꾼 뒤에는 해당 카드에서 「재구축」을 누르세요. 템플릿이 준비된 뒤에 계속할 수 있습니다.",
+      templateStepHint: "Select a ready template to continue. Create the standard template if missing, and rebuild after changing DNS.",
       loadingTemplates: "Loading templates from the cluster...",
       templateBuildingHint:
         "템플릿을 구축하는 중입니다. 목록이 자동으로 새로고침됩니다.",
@@ -6463,20 +6440,9 @@ export default {
       createStandardTemplate: "만들기",
       createStandardTemplateHint:
         "현재 연결 설정(DNS 포함)으로 구축합니다. 설정을 바꾼 뒤에는 카드에서 재구축하세요.",
-      weknoraDesktopTemplate: "WeKnora 데스크톱 템플릿",
-      createDesktopTemplate: "만들기",
-      createDesktopTemplateHint:
-        "공식 데스크톱 이미지로 XFCE 그래픽 데스크톱을 구축합니다. CLI 템플릿보다 훨씬 크니 GUI가 필요할 때만 만드세요.",
       replaceStandardTemplate: "재구축",
       replaceStandardTemplateConfirm:
         "현재 설정(DNS 포함)으로 WeKnora 표준 템플릿을 다시 만듭니다. 새 템플릿이 준비되기 전에는 기존에 쓸 수 있는 템플릿을 삭제하지 않습니다.",
-      desktopTemplateProvisioning:
-        "WeKnora 데스크톱 템플릿을 만들고 있습니다. 잠시 후 새로고침해 상태를 확인하세요.",
-      desktopTemplateReplaced:
-        "기존 데스크톱 템플릿을 삭제했고 재구축을 시작했습니다. 준비될 때까지 기다리세요. CLI 템플릿은 그대로 둡니다.",
-      desktopTemplateTag: "데스크톱",
-      replaceDesktopTemplateConfirm:
-        "현재 설정(DNS 포함)으로 WeKnora 데스크톱 템플릿을 다시 만듭니다. 새 템플릿이 준비되기 전에는 기존에 쓸 수 있는 데스크톱 템플릿을 삭제하지 않으며, CLI 템플릿은 그대로 둡니다.",
       templateLockedBySkills:
         "이 샌드박스에는 이미 Skill이 설치되어 있습니다. 스킬 환경이 현재 스냅샷에 묶여 있어 런타임 템플릿을 바꾸거나 재구축할 수 없습니다. 새 샌드박스를 만들고 새 템플릿에서 Skill을 다시 설치하세요.",
       templateLockedByInFlight:
@@ -6569,9 +6535,8 @@ export default {
       defaultTimeout: "Execution timeout (s)",
       defaultTimeoutHelp:
         "스킬 스크립트 한 번이 실행될 수 있는 최대 시간이며, 초과하면 강제 종료됩니다. 비워 두면 60초입니다.",
-      terminalIdleDisconnect: "터미널 / 데스크톱 유휴 해제 (초)",
-      terminalIdleDisconnectHelp:
-        "터미널 또는 데스크톱을 연 뒤 이 시간 동안 조작이 없으면 연결을 끊어 샌드박스가 TTL에 따라 일시 중지되도록 합니다. 터미널은 키보드와 PTY 출력을, 데스크톱은 마우스와 키보드를 봅니다. 비워 두면 900초이며, 최소 60초, 최대 24시간입니다.",
+      terminalIdleDisconnect: "Terminal idle disconnect (s)",
+      terminalIdleDisconnectHelp: "Disconnect an idle terminal so the sandbox can pause on its TTL. Keyboard input and PTY output count as activity. Default 900 seconds; range 60 seconds to 24 hours.",
       envVars: "Environment variables",
       envKey: "Name",
       envValue: "Value",

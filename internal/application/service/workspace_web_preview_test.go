@@ -12,6 +12,28 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type previewManager struct {
+	stubPinnedManager
+	results []*sandbox.ExecuteResult
+	cmds    []string
+	calls   []sandbox.ShellExecOptions
+}
+
+func (m *previewManager) RequireRunningSessionSandbox(context.Context, string) error { return nil }
+
+func (m *previewManager) SessionWorkspaceLayout(context.Context, string) (sandbox.WorkspaceLayout, error) {
+	return sandbox.WorkspaceLayout{Root: "/workspace"}, nil
+}
+
+func (m *previewManager) ExecShellCommandWithOptions(_ context.Context, _ string, command string, opts sandbox.ShellExecOptions) (*sandbox.ExecuteResult, error) {
+	m.cmds = append(m.cmds, command)
+	m.calls = append(m.calls, opts)
+	if i := len(m.cmds) - 1; i < len(m.results) {
+		return m.results[i], nil
+	}
+	return nil, nil
+}
+
 type webPreviewManager struct {
 	previewManager
 	response *http.Response

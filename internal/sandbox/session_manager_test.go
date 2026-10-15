@@ -542,20 +542,6 @@ func TestSessionBoundManagerOpenSessionTerminalUnsupportedBackend(t *testing.T) 
 	require.NotErrorIs(t, err, ErrNoLiveSessionSandbox)
 }
 
-func TestSessionDesktopManagerNilWhenBackendLacksCapability(t *testing.T) {
-	// A backend that cannot relay desktops must not advertise the capability;
-	// the frontend greys the tab out from this signal alone, before any
-	// sandbox exists.
-	mgr, _ := newSessionManagerExecTestHarness(t)
-	require.Nil(t, mgr.SessionDesktopManager())
-}
-
-func TestOpenSessionDesktopUnsupportedBackend(t *testing.T) {
-	mgr, _ := newSessionManagerExecTestHarness(t)
-	_, err := mgr.OpenSessionDesktop(context.Background(), "sess-1", RemoteDesktopOptions{})
-	require.ErrorIs(t, err, ErrDesktopUnsupported)
-}
-
 func TestBoundSandboxIDReadsBindingWithoutConnect(t *testing.T) {
 	client := newFakeRemoteClient(SandboxTypeCube)
 	store := NewMemorySessionSandboxBindingStore()

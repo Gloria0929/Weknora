@@ -4001,14 +4001,6 @@ definitions:
           DefaultTimeoutSec is the per-execution timeout in seconds. 0 uses the
           program's built-in default.
         type: integer
-      desktop_enabled:
-        description: |-
-          DesktopEnabled declares that this config's base template is a desktop
-          image (XFCE + x11vnc + websockify). It is NOT a second template: a
-          config has exactly one boot target, and skill snapshots stack on top of
-          this base generation after generation. Flipping it changes the base, so
-          any installed skills must be rebuilt from the new one.
-        type: boolean
       docker:
         $ref: '#/definitions/github_com_Tencent_WeKnora_internal_types.DockerSandboxConfig'
       e2b:
@@ -4051,10 +4043,8 @@ definitions:
         type: string
       terminal_idle_disconnect_sec:
         description: |-
-          TerminalIdleDisconnectSec is how long an interactive terminal or
-          desktop may go without user activity before WeKnora closes the
-          connection so the sandbox can pause on its provider TTL. Terminal
-          counts keystrokes and PTY output; desktop counts mouse and keyboard.
+          TerminalIdleDisconnectSec is how long a terminal may have no keyboard
+          input or PTY output before its connection closes, allowing provider TTL pause.
           0 uses the built-in default (15 minutes). Not an identity field.
         type: integer
       volume_mount:

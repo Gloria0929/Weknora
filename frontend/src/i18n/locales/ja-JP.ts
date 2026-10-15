@@ -1691,8 +1691,7 @@ export default {
         "テンプレートはこのクラスタから読み込まれます。保存した設定にはIDが自動的に記録されます。",
       templateSelectPlaceholder:
         "クラスタに接続してテンプレートを読み込んでください",
-      templateLoadHint:
-        "クラスタの接続情報を入力して更新してください。公式のCLIテンプレートがない場合はHubイメージから自動構築します。デスクトップテンプレートはサイズが大きいため、下の行から個別に作成してください。DNSやイメージを変更した場合は、該当カードから再構築してください。",
+      templateLoadHint: "Refresh after connecting. Create the standard template if missing; rebuild it after changing DNS.",
       templateLoadFailed: "テンプレートの読み込みに失敗しました",
       standardTemplateProvisioning:
         "WeKnora標準テンプレートを作成しています。しばらくしてから更新してステータスを確認してください。",
@@ -1703,8 +1702,7 @@ export default {
       connectionPassed:
         "接続を確認しました。以下のテンプレートはこのクラスタから読み込まれています。",
       connectionPassedTitle: "クラスタに接続しました",
-      templateStepHint:
-        "このステップではクラスタのテンプレートを表示し、公式のCLIイメージがなければHubから構築します。デスクトップ（XFCE）テンプレートはサイズが大きいため、「作成」を押したときだけ構築します。DNSやイメージを変更した場合は該当カードから「再構築」してください。テンプレートの準備ができたら次へ進めます。",
+      templateStepHint: "Select a ready template to continue. Create the standard template if missing, and rebuild after changing DNS.",
       loadingTemplates: "クラスタからテンプレートを読み込み中...",
       templateBuildingHint:
         "テンプレートをビルド中です。このリストは自動的に更新されます。",
@@ -1716,20 +1714,9 @@ export default {
       createStandardTemplate: "作成",
       createStandardTemplateHint:
         "DNSを含む現在の接続設定でビルドされます。設定を変更した場合は、カードから再構築してください。",
-      weknoraDesktopTemplate: "WeKnoraデスクトップテンプレート",
-      createDesktopTemplate: "作成",
-      createDesktopTemplateHint:
-        "公式デスクトップイメージからXFCEグラフィカルデスクトップを構築します。CLIテンプレートよりはるかに大きいため、GUIが必要なときだけ作成してください。",
       replaceStandardTemplate: "再構築",
       replaceStandardTemplateConfirm:
         "DNSを含む現在の設定でWeKnora標準テンプレートを再構築します。既存の起動可能なテンプレートは、新しいテンプレートの準備が整うまで削除されません。",
-      desktopTemplateProvisioning:
-        "WeKnoraデスクトップテンプレートを作成しています。しばらくしてから更新してステータスを確認してください。",
-      desktopTemplateReplaced:
-        "以前のデスクトップテンプレートを削除し、再構築を開始しました。完了までお待ちください。CLIテンプレートは変更しません。",
-      desktopTemplateTag: "デスクトップ",
-      replaceDesktopTemplateConfirm:
-        "DNSを含む現在の設定でWeKnoraデスクトップテンプレートを再構築します。既存の起動可能なデスクトップテンプレートは、新しいテンプレートの準備が整うまで削除されません。CLIテンプレートは変更しません。",
       templateLockedBySkills:
         "このサンドボックスにはすでにスキルがあります。スキル環境は現在のスナップショットに紐づいているため、ランタイムテンプレートの変更や再構築はできません。新しいサンドボックスを作成し、新しいテンプレートからスキルをインストールしてください。",
       templateLockedByInFlight:
@@ -1822,9 +1809,8 @@ export default {
       defaultTimeout: "実行タイムアウト（秒）",
       defaultTimeoutHelp:
         "スキルスクリプト1回あたりの最長実行時間です。これを超えると強制終了されます。空欄の場合は60秒です。",
-      terminalIdleDisconnect: "ターミナル / デスクトップのアイドル切断（秒）",
-      terminalIdleDisconnectHelp:
-        "ターミナルまたはデスクトップを開いた後、この時間だけ操作がなければ接続を切断し、サンドボックスはTTLに従って一時停止します。ターミナルはキーボードとPTY出力、デスクトップはマウスとキーボードを見ます。空欄の場合は900秒、最短60秒、最長24時間です。",
+      terminalIdleDisconnect: "Terminal idle disconnect (s)",
+      terminalIdleDisconnectHelp: "Disconnect an idle terminal so the sandbox can pause on its TTL. Keyboard input and PTY output count as activity. Default 900 seconds; range 60 seconds to 24 hours.",
       envVars: "環境変数",
       envKey: "名前",
       envValue: "値",
@@ -4347,33 +4333,12 @@ export default {
       panelTitle: "サンドボックス",
       tabArtifacts: "ファイル",
       tabTerminal: "ターミナル",
-      tabDesktop: "デスクトップ",
       artifactsEmpty: "この会話で生成されたファイルはまだありません",
       artifactScope: "ファイルの範囲",
       artifactsCurrent: "このターン",
       artifactsAll: "すべて",
       artifactsSearch: "ファイル名を検索",
       artifactsNoMatches: "一致するファイルがありません",
-      desktopNotStarted:
-        "The desktop is not connected yet. Connecting it attaches to this conversation's sandbox.",
-      desktopStart: "Connect desktop",
-      desktopStarting: "Connecting to the desktop… (3-8 seconds on first use)",
-      desktopUnsupported:
-        "This sandbox config has no desktop. Pick a desktop-image template in the workspace sandbox settings, on a Cube or E2B backend.",
-      desktopBusy:
-        "This conversation already has a desktop open. Only one connection is allowed at a time, otherwise two people share one keyboard and mouse.",
-      desktopStartFailed: "The desktop failed to start. You can retry.",
-      desktopRebuilt:
-        "The sandbox was rebuilt for a skill update, so the previous desktop and any unsaved work are gone. Reconnecting gives you a fresh desktop.",
-      desktopNeedsProvision:
-        "This conversation has no running sandbox. Create and connect starts a new sandbox, billed according to your workspace configuration.",
-      desktopCreateAndStart: "Create and connect",
-      desktopPaused:
-        "This conversation's sandbox is paused. Connecting the desktop resumes it.",
-      desktopDisconnected: "Desktop disconnected",
-      desktopIdleDisconnected:
-        "The desktop disconnected after being idle. The sandbox will pause on its own TTL. You can reconnect.",
-      desktopRetry: "Reconnect",
       notStarted:
         "ターミナルはまだ起動していません。起動するとこの会話のサンドボックスに接続し、存在しないか一時停止中の場合は作成または再開します。",
       paused:

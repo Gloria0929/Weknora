@@ -67,7 +67,6 @@ func ResolveEffectiveConfig(
 	overrideSeconds(&effective.TerminalIdleDisconnect, tenantCfg.TerminalIdleDisconnectSec)
 	effective.TerminalIdleDisconnect = EffectiveTerminalIdleDisconnect(effective.TerminalIdleDisconnect)
 	effective.AllowPrivateEndpoints = tenantCfg.AllowPrivateEndpoints
-	effective.DesktopEnabled = tenantCfg.DesktopEnabled
 	effective.Network = resolveNetworkPolicy(tenantCfg.Network)
 	if tenantCfg.EnvVars != nil {
 		effective.EnvVars = cloneMetadata(tenantCfg.EnvVars)
@@ -82,10 +81,7 @@ func ResolveEffectiveConfig(
 		overrideString(&effective.CubeSandboxDomain, cube.SandboxDomain)
 		overrideString(&effective.CubeAPIKey, cube.APIKey)
 		overrideString(&effective.CubeTemplate, cube.TemplateID)
-		effective.CubeDesktopTemplateImage = strings.TrimSpace(cube.DesktopTemplateImage)
-		if image := effective.CubeDesktopTemplateImage; strings.Contains(image, "://") || strings.ContainsAny(image, " \t\r\n") || len(image) > 2048 {
-			return nil, fmt.Errorf("cube.desktop_template_image must be an OCI image reference, not a URL")
-		}
+
 		overrideSeconds(&effective.CubeHTTPTimeout, cube.HTTPTimeoutSec)
 		overrideSeconds(&effective.CubeSandboxTTL, cube.CubeSandboxTTLSeconds)
 		dns, err := NormalizeCubeDNSServers(cube.DNSServers)
@@ -216,7 +212,6 @@ func clearProviderFields(cfg *Config) {
 	cfg.CubeSandboxDomain = ""
 	cfg.CubeAPIKey = ""
 	cfg.CubeTemplate = ""
-	cfg.CubeDesktopTemplateImage = ""
 	cfg.CubeSandboxTTL = 0
 	cfg.CubeHTTPTimeout = 0
 	cfg.CubeDNSServers = nil

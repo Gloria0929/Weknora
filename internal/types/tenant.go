@@ -633,19 +633,10 @@ type TenantSandboxConfig struct {
 	// program's built-in default.
 	DefaultTimeoutSec int `json:"default_timeout_sec,omitempty"`
 
-	// TerminalIdleDisconnectSec is how long an interactive terminal or
-	// desktop may go without user activity before WeKnora closes the
-	// connection so the sandbox can pause on its provider TTL. Terminal
-	// counts keystrokes and PTY output; desktop counts mouse and keyboard.
+	// TerminalIdleDisconnectSec is how long a terminal may have no keyboard
+	// input or PTY output before its connection closes, allowing provider TTL pause.
 	// 0 uses the built-in default (15 minutes). Not an identity field.
 	TerminalIdleDisconnectSec int `json:"terminal_idle_disconnect_sec,omitempty"`
-
-	// DesktopEnabled declares that this config's base template is a desktop
-	// image (XFCE + x11vnc + websockify). It is NOT a second template: a
-	// config has exactly one boot target, and skill snapshots stack on top of
-	// this base generation after generation. Flipping it changes the base, so
-	// any installed skills must be rebuilt from the new one.
-	DesktopEnabled bool `json:"desktop_enabled,omitempty"`
 
 	// AllowPrivateEndpoints permits this workspace config to reach RFC1918 or
 	// loopback cluster endpoints. Link-local/cloud-metadata addresses remain
@@ -700,11 +691,6 @@ type CubeSandboxConfig struct {
 	SandboxDomain string `json:"sandbox_domain,omitempty"`
 	APIKey        string `json:"api_key,omitempty"` // 加密
 	TemplateID    string `json:"template_id,omitempty"`
-
-	// DesktopTemplateImage overrides the OCI source for explicit desktop
-	// template builds. Use a reachable copy of the desktop-cube image when
-	// the Cube build nodes cannot reach Docker Hub. Empty uses the default.
-	DesktopTemplateImage string `json:"desktop_template_image,omitempty"`
 
 	// HTTPTimeoutSec bounds each HTTP call to the sandbox control plane.
 	// 0 means use the built-in default (30s), never the deployment's value.

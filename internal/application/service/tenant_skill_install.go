@@ -1176,10 +1176,9 @@ const skillCacheBudgetMB = 256
 // files, and the wipe takes the base image's own input/output directories with
 // it, so the same command restores them with the ownership the session account
 // needs — the only step of an install that runs with the privileges to do it.
-// /run/desktop goes with it: start-desktop.sh writes the websockify Basic
-// password there, and a snapshot that kept it would reuse that password on
-// every later sandbox (Cube's host-port NAT has no other gate). That half is
-// strict; failing it fails the install.
+// Historical images may contain runtime credentials under /run/desktop;
+// those must still be scrubbed so new snapshots never reuse old secrets.
+// This cleanup is strict; failing it fails the install.
 //
 // The package download caches are the other half, and they are retained rather
 // than wiped: pip, uv, npm and pnpm caches are first trimmed with the tools'

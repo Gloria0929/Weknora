@@ -1,4 +1,4 @@
-"""Loaded after workspace_preview.py's helpers; no desktop/browser calls."""
+"""Loaded after workspace_project.py's helpers; starts project HTTP servers."""
 import secrets
 
 

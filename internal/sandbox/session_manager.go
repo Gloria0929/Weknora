@@ -29,7 +29,6 @@ import (
 	"log"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -249,7 +248,7 @@ func (m *SessionBoundManager) GetType() SandboxType {
 	return m.activeType
 }
 
-// TerminalIdleDisconnect is how long an open PTY or desktop relay may sit
+// TerminalIdleDisconnect is how long an open PTY may sit
 // idle before the WebSocket is closed. Missing or out-of-range workspace
 // values are clamped onto the built-in default so a stored 0 still disconnects.
 func (m *SessionBoundManager) TerminalIdleDisconnect() time.Duration {
@@ -845,7 +844,7 @@ type ShellExecOptions struct {
 	// AllowSkillsRoot separately selects the installer working-directory scope;
 	// it is not a filesystem boundary for commands running as root.
 	AsRoot bool
-	// SkipWorkspacePrep omits prepareSessionDirs. Desktop maintenance and
+	// SkipWorkspacePrep omits prepareSessionDirs. Preview discovery and
 	// workspace checkpoints operate on an existing layout. Never set this from a model-authored tool
 	// such as shell_exec — agents still need the workspace contract.
 	SkipWorkspacePrep bool
@@ -1117,27 +1116,8 @@ func (m *SessionBoundManager) OpenSessionTerminal(
 
 var _ SessionTerminalProvider = (*SessionBoundManager)(nil)
 
-// SessionDesktopManager advertises the graphical-desktop capability while a
-// real remote backend is active, the provider can relay a data-plane
-// WebSocket (E2B and Cube do; Docker is not scheduled), and this config's
-// base image is a desktop template. DesktopEnabled is the stored bit that
-// survives skill snapshots replacing template_id with a UUID; without it the
-// tab would Exec ensure.sh on a CLI image and only then report unsupported.
-func (m *SessionBoundManager) SessionDesktopManager() SessionDesktopManager {
-	if m == nil || m.remoteDisabled() {
-		return nil
-	}
-	if m.config == nil || !m.config.DesktopEnabled {
-		return nil
-	}
-	if _, ok := DesktopManagerFrom(m.client); !ok {
-		return nil
-	}
-	return m
-}
-
 // RequireRunningSessionSandbox reports ErrNoLiveSessionSandbox or
-// ErrSandboxPaused without Connect. Lookup-only terminal and desktop opens
+// ErrSandboxPaused without Connect. Lookup-only terminal and preview requests
 // use it so opening a panel cannot resume (and re-bill) a paused instance.
 // Only a List-confirmed running sandbox is safe: paused/transitioning
 // Connect resumes, and a list miss with a stale binding is not "no sandbox".
@@ -1162,7 +1142,7 @@ func (m *SessionBoundManager) RequireRunningSessionSandbox(
 }
 
 // Validation owns this context until its detached task finishes. Reuse the
-// provider timeout refresher without opening a terminal or a desktop.
+// provider timeout refresher without opening an interactive connection.
 func (m *SessionBoundManager) KeepSessionAlive(ctx context.Context, sessionID string) error {
 	handle, found, err := m.lookupSessionHandle(ctx, sessionID)
 	if err != nil {
@@ -1171,55 +1151,11 @@ func (m *SessionBoundManager) KeepSessionAlive(ctx context.Context, sessionID st
 	if !found {
 		return ErrNoLiveSessionSandbox
 	}
-	if refresher, ok := DesktopTTLRefresherFrom(m.client); ok {
-		refresher.StartDesktopTTLRefresh(ctx, handle)
+	if refresher, ok := TTLRefresherFrom(m.client); ok {
+		refresher.StartTTLRefresh(ctx, handle)
 	}
 	return nil
 }
-
-// OpenSessionDesktop dials the desktop of the sandbox currently bound to the
-// session.
-//
-// Unlike OpenSessionTerminal there is no AllowResume branch: by the time this
-// runs, SandboxDesktopService has already driven the same
-// resolveSandboxForExecution path a chat turn uses, so the sandbox is live
-// and — critically — its inbound token is registered on THIS replica.
-// Reaching here with no binding means the sandbox went away in between,
-// which is an error, not a reason to provision.
-func (m *SessionBoundManager) OpenSessionDesktop(
-	ctx context.Context,
-	sessionID string,
-	opts RemoteDesktopOptions,
-) (*SessionDesktopConn, error) {
-	if m.SessionDesktopManager() == nil {
-		return nil, ErrDesktopUnsupported
-	}
-	desktop, ok := DesktopManagerFrom(m.client)
-	if !ok {
-		return nil, ErrDesktopUnsupported
-	}
-	handle, found, err := m.lookupSessionHandle(ctx, sessionID)
-	if err != nil {
-		return nil, err
-	}
-	if !found {
-		return nil, ErrNoLiveSessionSandbox
-	}
-	conn, err := desktop.DialDesktop(ctx, handle, opts)
-	if err != nil {
-		return nil, err
-	}
-	out := &SessionDesktopConn{Conn: conn, SandboxID: handle.ID()}
-	if refresher, ok := DesktopTTLRefresherFrom(m.client); ok {
-		bound := handle
-		out.StartTTLRefresh = func(ttlCtx context.Context) {
-			refresher.StartDesktopTTLRefresh(ttlCtx, bound)
-		}
-	}
-	return out, nil
-}
-
-var _ SessionDesktopProvider = (*SessionBoundManager)(nil)
 
 // Cleanup marks the manager closed. Session sandboxes are not force-deleted
 // here: their lifecycle is authoritative in the binding store and would
@@ -1419,11 +1355,10 @@ func (m *SessionBoundManager) peekBoundSandboxState(
 	if binding == nil || binding.Provider != m.client.Provider() {
 		return "", false, nil
 	}
+	// The tenant-scoped binding is authoritative for instance ownership.
+	// Snapshot restores can inherit the seed sandbox's session metadata, so
+	// filtering by that metadata can hide the bound, running instance.
 	summaries, err := m.client.List(ctx, RemoteListFilter{
-		Metadata: map[string]string{
-			remoteMetadataTenantID:  strconv.FormatUint(key.TenantID, 10),
-			remoteMetadataSessionID: key.SessionID,
-		},
 		States: []RemoteSandboxState{
 			RemoteStateRunning,
 			RemoteStatePaused,
@@ -1438,8 +1373,8 @@ func (m *SessionBoundManager) peekBoundSandboxState(
 			return summary.State, true, nil
 		}
 	}
-	// Binding exists but the provider list did not return it (lag, metadata
-	// mismatch, or a state outside the filter). That is not "no sandbox":
+	// Binding exists but the provider list did not return it (lag or a state
+	// outside the filter). That is not "no sandbox":
 	// the UI should ask before Connect, which would resume a paused VM.
 	return RemoteStateUnknown, true, nil
 }

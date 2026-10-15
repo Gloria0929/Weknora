@@ -4023,31 +4023,12 @@ export default {
       panelTitle: "沙箱可视化",
       tabArtifacts: "产物",
       tabTerminal: "终端",
-      tabDesktop: "桌面",
       artifactsEmpty: "本会话尚未生成可下载的文件",
       artifactScope: "产物范围",
       artifactsCurrent: "本轮",
       artifactsAll: "全部",
       artifactsSearch: "搜索文件名",
       artifactsNoMatches: "没有匹配的文件",
-      desktopNotStarted: "桌面尚未连接。连接后会接入本会话的沙箱环境。",
-      desktopStart: "连接桌面",
-      desktopStarting: "正在连接桌面…（首次约需 3–8 秒）",
-      desktopUnsupported:
-        "当前沙箱配置不支持桌面。需要在工作区沙箱设置的模板列表里选中带桌面的镜像，且后端为 Cube 或 E2B。",
-      desktopBusy:
-        "本会话已有一个桌面连接。桌面同一时刻只允许一个连接，否则会出现两个人抢同一套键鼠。",
-      desktopStartFailed: "桌面启动失败，可以重试。",
-      desktopRebuilt:
-        "沙箱已因技能更新重建，原桌面及未保存的内容已丢失。重新连接会得到一个全新桌面。",
-      desktopNeedsProvision:
-        "本会话当前没有运行中的沙箱环境。创建并连接会新建一个沙箱，并按工作区配置计费。",
-      desktopCreateAndStart: "创建并连接",
-      desktopPaused: "本会话的沙箱已暂停。连接桌面会唤醒它。",
-      desktopDisconnected: "桌面连接已断开",
-      desktopIdleDisconnected:
-        "桌面空闲已断开，沙箱将按工作区 TTL 自行暂停。可重新连接。",
-      desktopRetry: "重新连接",
       notStarted:
         "终端尚未启动。启动后会连接本会话的沙箱环境；若沙箱不存在或已暂停，将为你创建或唤醒它。",
       paused: "本会话的沙箱已暂停。启动终端会唤醒它。",
@@ -6183,8 +6164,7 @@ export default {
       templateSelectHelp:
         "模板由当前集群实时返回，保存时仅记录模板 ID，无需手工复制。",
       templateSelectPlaceholder: "先连接集群并加载模板",
-      templateLoadHint:
-        "填写集群连接后刷新模板。没有官方标准模板时，会从 Docker Hub 镜像自动构建。桌面模板体积更大，需在下方单独点「创建」。改 DNS 或镜像后在对应卡片上点「重建」。",
+      templateLoadHint: "连接集群后刷新模板。缺少标准模板时点击创建；更改 DNS 后可在卡片上重建。",
       templateLoadFailed: "模板列表加载失败",
       standardTemplateProvisioning:
         "已开始在集群中创建 WeKnora 标准模板，请稍后刷新查看状态",
@@ -6192,8 +6172,7 @@ export default {
       templateNotReady: "所选模板尚未构建完成，请刷新并等待状态就绪",
       connectionPassed: "连接验证通过，以下模板均从当前集群实时加载。",
       connectionPassedTitle: "集群连接成功",
-      templateStepHint:
-        "进入此步会列出集群模板；若还没有官方标准模板，会从 Docker Hub 镜像自动构建。桌面模板（XFCE）体积较大，需单独点「创建」。改 DNS 或镜像后在对应卡片上点「重建」。选好并就绪后才能继续。",
+      templateStepHint: "选择已就绪的模板后继续。缺少标准模板时可点击创建，更改 DNS 后可重建。",
       loadingTemplates: "正在从集群加载模板…",
       templateBuildingHint: "模板正在构建，列表会自动刷新。",
       templateUntaggedHint:
@@ -6204,20 +6183,9 @@ export default {
       createStandardTemplate: "创建",
       createStandardTemplateHint:
         "按当前连接配置构建，包含 DNS。之后改配置可在卡片上重建。",
-      weknoraDesktopTemplate: "WeKnora 桌面模板",
-      createDesktopTemplate: "创建",
-      createDesktopTemplateHint:
-        "从官方桌面镜像构建 XFCE 图形桌面。体积明显大于标准模板，仅在需要图形界面时创建。",
       replaceStandardTemplate: "重建",
       replaceStandardTemplateConfirm:
         "将用当前配置（含 DNS）重建 WeKnora 标准模板。新模板就绪前不会删除仍可启动的旧模板。",
-      desktopTemplateProvisioning:
-        "已开始在集群中创建 WeKnora 桌面模板，请稍后刷新查看状态",
-      desktopTemplateReplaced:
-        "已删除原桌面模板并开始重建，请等待状态就绪。标准（CLI）模板不受影响。",
-      desktopTemplateTag: "桌面",
-      replaceDesktopTemplateConfirm:
-        "将用当前配置（含 DNS）重建 WeKnora 桌面模板。新模板就绪前不会删除仍可启动的旧桌面模板，也不会删除标准（CLI）模板。",
       templateLockedBySkills:
         "该沙箱已安装 Skill，技能环境绑在当前快照上，不能更换或重建运行模板。请新建一份沙箱，从新模板再装 Skill。",
       templateLockedByInFlight:
@@ -6247,7 +6215,7 @@ export default {
       howToBuildTemplate: "沙箱集群搭建与模板说明",
       noEnvVars: "暂无额外环境变量。",
       fieldRequired: "必填",
-      cubeApiKeyOptional: "可留空 —— 自建 CubeSandbox 通常无鉴权",
+      cubeApiKeyOptional: "集群启用鉴权时必填；仅未启用鉴权的集群可留空",
       cubeApiKeyWhere: "自建集群如何开启鉴权",
       cubeDnsServers: "DNS 服务器",
       cubeDnsServersHelp:
@@ -6303,9 +6271,8 @@ export default {
       defaultTimeout: "执行超时（秒）",
       defaultTimeoutHelp:
         "单次技能脚本允许运行的最长时间，超时会被强制终止。留空按 60 秒。",
-      terminalIdleDisconnect: "终端 / 桌面空闲断开（秒）",
-      terminalIdleDisconnectHelp:
-        "打开终端或桌面后，这段时间内没有交互就断开连接，沙箱随后按 TTL 自行暂停。终端看键盘和输出，桌面看键鼠。留空按 900 秒；最短 60 秒，最长 24 小时。",
+      terminalIdleDisconnect: "终端空闲断开（秒）",
+      terminalIdleDisconnectHelp: "终端没有键盘输入或 PTY 输出时断开，随后按提供商 TTL 暂停。默认 900 秒，范围 60 秒到 24 小时。",
       envVars: "环境变量",
       envKey: "变量名",
       envValue: "变量值",

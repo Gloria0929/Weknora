@@ -18,6 +18,9 @@ import (
 //go:embed workspace_web_preview.py
 var workspaceWebPreviewScript string
 
+//go:embed workspace_project.py
+var workspaceProjectScript string
+
 //go:embed workspace_web_relay.py
 var workspaceWebRelayScript string
 
@@ -58,8 +61,7 @@ func (a *PinnedSessionSandbox) DiscoverWebPreview(ctx context.Context, sessionID
 		return nil, sandbox.ErrPreviewUnsupported
 	}
 	args, _ := json.Marshal(map[string]any{"root": layout.Root, "start": start, "relay_script": workspaceWebRelayScript})
-	helpers := strings.Split(workspacePreviewScript, "if __name__ == \"__main__\":")[0]
-	command := "python3 -c " + sandbox.ShellQuote(helpers+"\n"+workspaceWebPreviewScript) + " " + sandbox.ShellQuote(string(args))
+	command := "python3 -c " + sandbox.ShellQuote(workspaceProjectScript+"\n"+workspaceWebPreviewScript) + " " + sandbox.ShellQuote(string(args))
 	result, err := runner.ExecShellCommandWithOptions(ctx, sessionID, command, sandbox.ShellExecOptions{Timeout: 40 * time.Second, SkipWorkspacePrep: true})
 	if err != nil {
 		return nil, err

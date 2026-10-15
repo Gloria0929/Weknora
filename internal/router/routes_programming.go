@@ -21,7 +21,6 @@ func RegisterProgrammingRoutes(
 	getProgramming := g.apiKeyGroup(r.Group("/sessions/:id/programming", g.Viewer()), apiKeyChat(apiKeyFullAccess()))
 	getProgramming.GET("/tree", h.ListTree)
 	getProgramming.GET("/file", h.ReadFile)
-	getProgramming.GET("/preview", h.PreviewCapabilities)
 	getProgramming.GET("/test-projects", h.TestProjects)
 	getProgramming.GET("/test-targets", h.TestTargets)
 	getProgramming.GET("/test-runs", h.TestRuns)
@@ -48,6 +47,5 @@ func RegisterProgrammingRoutes(
 	postProgramming.POST("/git-switch-branch", h.GitSwitchBranch)
 	postProgramming.POST("/git-reset", h.GitReset)
 	postProgramming.POST("/git-discard", h.GitDiscard)
-	postProgramming.POST("/preview", h.OpenPreview)
 	postProgramming.POST("/web-preview", h.DiscoverWebPreview)
 }

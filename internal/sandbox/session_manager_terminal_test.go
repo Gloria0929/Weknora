@@ -146,13 +146,43 @@ func TestOpenSessionTerminalRefusesTransitioningSandboxWithoutResume(t *testing.
 		"pausing/resuming is Transitioning; lookup-only Connect would still resume")
 }
 
-func TestOpenSessionTerminalListMissWithBindingIsPausedNotUnbound(t *testing.T) {
+func TestRequireRunningSessionSandboxUsesBindingDespiteSnapshotMetadata(t *testing.T) {
 	ctx := terminalTestContext()
 	mgr, client := newSessionManagerTerminalTestHarness(t)
 
 	_, err := mgr.ExecShellCommand(ctx, "sess-1", "true", "", time.Second, nil)
 	require.NoError(t, err)
 	clearAllFakeSandboxMetadata(t, client.fakeRemoteClient)
+	client.mu.Lock()
+	for _, rec := range client.sandboxes {
+		rec.metadata[remoteMetadataSessionID] = "snapshot-seed-session"
+	}
+	client.mu.Unlock()
+	connectsBefore := fakeConnectCount(t, client.fakeRemoteClient)
+
+	require.NoError(t, mgr.RequireRunningSessionSandbox(ctx, "sess-1"))
+	require.Equal(t, connectsBefore, fakeConnectCount(t, client.fakeRemoteClient),
+		"checking the bound instance must not Connect or resume it")
+
+	pauseAllFakeSandboxes(t, client.fakeRemoteClient)
+	require.ErrorIs(t, mgr.RequireRunningSessionSandbox(ctx, "sess-1"), ErrSandboxPaused)
+	require.Equal(t, connectsBefore, fakeConnectCount(t, client.fakeRemoteClient))
+}
+
+func TestOpenSessionTerminalListMissWithBindingIsPausedNotUnbound(t *testing.T) {
+	ctx := terminalTestContext()
+	mgr, client := newSessionManagerTerminalTestHarness(t)
+
+	_, err := mgr.ExecShellCommand(ctx, "sess-1", "true", "", time.Second, nil)
+	require.NoError(t, err)
+	client.mu.Lock()
+	for id, rec := range client.sandboxes {
+		delete(client.sandboxes, id)
+		rec.id = "another-running-sandbox"
+		client.sandboxes["another-running-sandbox"] = rec
+		break
+	}
+	client.mu.Unlock()
 	connectsBefore := fakeConnectCount(t, client.fakeRemoteClient)
 
 	_, err = mgr.OpenSessionTerminal(ctx, "sess-1", RemoteTerminalOptions{})

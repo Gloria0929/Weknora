@@ -32,14 +32,11 @@ type sandboxTemplateQueryRequest struct {
 	ConfigID        string                     `json:"config_id,omitempty"`
 	EnsureStandard  bool                       `json:"ensure_standard"`
 	ReplaceStandard bool                       `json:"replace_standard"`
-	EnsureDesktop   bool                       `json:"ensure_desktop"`
-	ReplaceDesktop  bool                       `json:"replace_desktop"`
 }
 
 // QueryTemplates returns the templates visible through an unsaved workspace
-// connection. ensure_standard / ensure_desktop start a build only when that
-// WeKnora template is missing (from the published Hub image); replace_standard
-// / replace_desktop rebuild it so a new spec (DNS, image) can take effect.
+// connection. ensure_standard builds a missing standard template;
+// replace_standard rebuilds it so a new spec (DNS, image) can take effect.
 // Replace requires config_id.
 func (h *SandboxConfigHandler) QueryTemplates(c *gin.Context) {
 	var req sandboxTemplateQueryRequest
@@ -53,8 +50,6 @@ func (h *SandboxConfigHandler) QueryTemplates(c *gin.Context) {
 			ConfigID:        req.ConfigID,
 			EnsureStandard:  req.EnsureStandard,
 			ReplaceStandard: req.ReplaceStandard,
-			EnsureDesktop:   req.EnsureDesktop,
-			ReplaceDesktop:  req.ReplaceDesktop,
 		})
 	if err != nil {
 		if respondSandboxConfigRefusal(c, err) {
@@ -201,6 +196,13 @@ func respondSandboxConfigRefusal(c *gin.Context, err error) bool {
 // sentinels to 400. They are matched as sentinels rather than by message so a
 // reworded error cannot silently start returning 500 for bad input.
 func respondSandboxConfigServiceError(c *gin.Context, err error) {
+	var remoteErr *sandbox.RemoteError
+	if stderrors.As(err, &remoteErr) && remoteErr.Kind == sandbox.RemoteErrorKindAuthentication {
+		// These are the provider's credentials, not the user's login. Returning
+		// 401 would make the frontend refresh its unrelated WeKnora session.
+		c.Error(apperrors.NewBadRequestError("沙箱后端认证失败：请填写有效的 API Key，并检查该密钥的访问权限"))
+		return
+	}
 	switch {
 	case stderrors.Is(err, service.ErrSandboxConfigNameRequired),
 		stderrors.Is(err, service.ErrNamedSandboxBackendUnsupported),

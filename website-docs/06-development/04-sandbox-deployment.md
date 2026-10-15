@@ -1,6 +1,6 @@
 # 沙箱部署与排障
 
-技能使用流程见[技能目录与沙箱](../03-features/22-skills-sandbox.md)，字段定义见[沙箱与技能 API](../04-api/02-api-sandbox-skills.md)。本文补充部署、模板、桌面和后端接入的运维要求。
+技能使用流程见[技能目录与沙箱](../03-features/22-skills-sandbox.md)，字段定义见[沙箱与技能 API](../04-api/02-api-sandbox-skills.md)。本文补充部署、模板、终端、网页预览和后端接入的运维要求。
 
 ## 后端与模板
 
@@ -12,8 +12,6 @@
 | --- | --- | --- |
 | `sandbox` | 无 | Docker 会话镜像；E2B CLI 模板基础镜像 |
 | `cube` | `-cube` | Cube CLI 模板，含 envd |
-| `desktop` | `-desktop` | E2B 图形桌面模板基础镜像 |
-| `desktop-cube` | `-desktop-cube` | Cube 图形桌面模板，含 envd |
 
 镜像名为 `wechatopenai/weknora-sandbox:<版本><后缀>`。模板 ID 属于具体集群或账号，不应把其他部署的 ID 直接复制过来。生产模板应对应已验证的应用版本；构建 target 和发布架构以仓库 Dockerfile、发布工作流为准。
 
@@ -48,23 +46,21 @@ app 运行在容器里时，要挂载实际 Docker socket，或改连远端 daem
 
 1. 先准备可用的控制面、数据面网关和沙箱域名。在空间设置中填写 API、Proxy、domain 与凭据；私网/回环端点需要显式允许私网地址，仍不允许云元数据地址。
 2. 点击「连接并继续」，验证控制面后加载模板目录。连接通过只证明控制面可用。
-3. 缺少标准模板时显式创建；需要桌面时另行创建桌面模板。等待状态为 `READY` 再选择。Cube 应使用带 envd 的 `-cube` 变体；普通 Docker 镜像不提供 `:49983/health`。
+3. 缺少标准模板时显式创建，等待状态为 `READY` 再选择。Cube 应使用带 envd 的 `-cube` 变体；普通 Docker 镜像不提供 `:49983/health`。
 4. 执行「完整验证」，实际创建沙箱、执行探针并销毁，确认数据面和脚本环境也可用。
 5. 保存后在智能体选择该配置，并验证附件读取、命令状态保持和产物下载。
 
 `proxy_url` 用于自托管数据面网关：连接网关时保留沙箱 Host 路由，适合没有泛域名 DNS 的环境。控制面可访问而执行失败时，重点核对 Proxy、sandbox domain、入站凭据和 app 到网关的可达性。
 
-Cube guest DNS 属于模板配置。更改 DNS/镜像后需重建模板才会进入新环境。已经安装技能的配置不能更换或重建底模，也不能在 CLI/桌面间切换，应新建配置并安装技能，避免让快照与底模不一致。
+Cube guest DNS 属于模板配置。更改 DNS/镜像后需重建模板才会进入新环境。已经安装技能的配置不能更换或重建底模，应新建配置并安装技能，避免让快照与底模不一致。
 
-### Cube 拉取桌面镜像超时
+### Cube 拉取镜像超时
 
-若构建错误包含 `Get "https://index.docker.io/v2/": dial tcp ...:443: i/o timeout`，失败发生在 **Cube 构建节点访问镜像仓库** 时，尚未启动沙箱。错误中附带的多架构提示不代表已确认架构不匹配；先处理构建节点的出站网络、DNS 或代理。WeKnora 的 `proxy_url` 是沙箱数据面网关，不是镜像拉取的出站代理，guest DNS 与 `desktop_enabled` 也无法修复这一阶段的网络。
+若构建错误包含 `Get "https://index.docker.io/v2/": dial tcp ...:443: i/o timeout`，失败发生在 **Cube 构建节点访问镜像仓库** 时，尚未启动沙箱。先处理构建节点的出站网络、DNS 或代理。WeKnora 的 `proxy_url` 是沙箱数据面网关，不是镜像拉取的出站代理，修改 guest DNS 无法修复这一阶段的网络。
 
-也可以将 `wechatopenai/weknora-sandbox:main-desktop-cube` 的 `linux/amd64` 镜像同步到 Cube 可访问的镜像仓库。在「设置 → 沙箱 → 编辑 → 模板 → 桌面模板构建镜像」填写副本的完整镜像引用，然后在失败的桌面模板卡片上点击「重建」。配置字段为 `cube.desktop_template_image`，留空保留官方镜像默认值。创建与重建均使用该字段；仅修改它不会改变已运行的沙箱。私有仓库认证应配置在实际执行拉取的 Cube 构建环境中。
+也可以将 `wechatopenai/weknora-sandbox:main-cube` 的 `linux/amd64` 镜像同步到 Cube 可访问的镜像仓库，在集群构建模板后，在 WeKnora 中选择对应模板 ID。自行构建时使用 `docker/Dockerfile.sandbox` 的 `cube` target；私有仓库认证应配置在实际执行拉取的 Cube 构建环境中。
 
-从本仓库构建包含 Chromium 的桌面镜像时，使用 `docker/Dockerfile.sandbox` 的 `desktop-cube` target 和 `linux/amd64` 平台，再推送到上述可访问的仓库。源码中的 Dockerfile 变更不会自动更新已经发布或缓存的镜像。
-
-多副本必须配置共享 Redis，保存 session→sandbox 绑定和桌面状态。仅单实例开发可使用内存存储。已有沙箱不会自动应用后端配置变更；技能更新的 `next_turn` / `new_session` 策略见[技能目录与沙箱](../03-features/22-skills-sandbox.md)。
+多副本必须配置共享 Redis，保存 session→sandbox 绑定和访问状态。仅单实例开发可使用内存存储。已有沙箱不会自动应用后端配置变更；技能更新的 `next_turn` / `new_session` 策略见[技能目录与沙箱](../03-features/22-skills-sandbox.md)。
 
 | 现象 | 排查方向 |
 | --- | --- |
@@ -89,7 +85,7 @@ Cube/E2B 的新会话沙箱使用 `onTimeout=pause`、`autoResume=true`：TTL �
 
 右侧「代码」使用文件树和文件工具栏。选中 HTML、SVG 或 Markdown 后，可在「代码 / 预览」间切换，支持复制、刷新和手机宽度。单文件预览在隔离 iframe 内运行，不依赖图形桌面，也不必启动 HTTP 服务；HTML 可加载同工作区中的 CSS、普通 JavaScript 和 SVG 图片。远程资源、网络请求、二进制图片及需要打包的模块依赖不属于此模式，资源加载失败会显示提示。
 
-右侧「预览 → 网页预览」可直接嵌入已经启动的项目 URL，基础 CLI 沙箱即可承载项目，无需 Chromium、VNC 或桌面模板。部署步骤：
+右侧「预览」可直接嵌入已经启动的项目 URL，基础 CLI 沙箱即可承载项目，无需 Chromium、VNC 或桌面模板。部署步骤：
 
 1. 在沙箱中安装项目依赖并启动 HTTP 服务；容器内的服务监听 `0.0.0.0`，保持进程运行。
 2. 通过部署环境已有的端口映射或预览网关，生成用户浏览器能访问的 URL。此入口不自动创建映射、不代理任意 URL，也不向 iframe 注入 WeKnora 登录凭据或沙箱 API Key。
@@ -97,32 +93,21 @@ Cube/E2B 的新会话沙箱使用 `onTimeout=pause`、`autoResume=true`：TTL �
 
 `localhost` 指用户当前电脑，不能用来直接访问远端沙箱内部的回环地址。项目应使用与 WeKnora 不同的来源（独立域名或端口），避免项目脚本访问应用来源；不要把预览页面重定向到 WeKnora 来源。WeKnora 使用 HTTPS 时，远程项目也需要 HTTPS。服务的 `X-Frame-Options` 和 CSP `frame-ancestors` 必须允许嵌入；涉及第三方 Cookie 的登录页面也可能受浏览器限制。跨来源 iframe 无法可靠判断页面是否被拦截，可使用面板底部排障提示或新窗口打开来验证实际地址。
 
-「预览 → 远程桌面」只显示独立的沙箱桌面，不自动探测、启动或导航项目网页，也没有网页地址栏或手机视图。网页项目统一使用「网页预览」。未启用或不支持图形桌面时，标签显示「不可用」，点击后展示原因且不发起桌面连接。桌面能力检查期间显示加载状态。
+预览面板仅提供网页预览，不再显示远程桌面标签，也不查询桌面能力或建立桌面连接。基础 CLI 沙箱即可使用网页预览。
 
-## 交互终端与图形桌面
+## 交互终端
 
-对话侧栏的终端和桌面都通过 WebSocket 连接会话沙箱，仅 Cube/E2B 支持，Docker 后端不提供。浏览器不能在 WebSocket 握手里携带认证头，因此都先用已登录的 POST 换取两分钟有效的短期票据，再把票据放在握手 query 中：
+对话侧栏的终端通过 WebSocket 连接会话沙箱，仅 Cube/E2B 支持，Docker 后端不提供。浏览器不能在 WebSocket 握手里携带认证头，因此先用已登录的 POST 换取短期票据，再把票据放在握手 query 中：
 
 | 能力 | 取票据 | WebSocket |
 | --- | --- | --- |
 | 终端 | `POST /api/v1/sessions/:session_id/sandbox/terminal-ticket` | `GET /api/v1/sessions/:id/sandbox/terminal?ticket=...` |
-| 桌面 | `POST /api/v1/sessions/:session_id/sandbox/desktop-ticket` | `GET /api/v1/sessions/:id/sandbox/desktop?ticket=...` |
 
-入口代理必须为这两个路径转发 WebSocket Upgrade、放宽读超时，并避免在访问日志中记录 ticket query。标准 frontend Nginx 已为 `^/api/v1/sessions/[^/]+/sandbox/(terminal|desktop)$` 配置不含 query 的日志格式；自定义 Ingress 需自行处理。终端连上后，服务端大约每分钟复核一次登录状态、空间成员和会话归属，退出登录或被移出空间会断开终端。接口参数见[终端 API](../04-api/02-api-sandbox-skills.md#会话交互终端)与[桌面 API](../04-api/02-api-chat.md#sandbox-desktop)。
+入口代理必须为终端路径转发 WebSocket Upgrade、放宽读超时，并避免在访问日志中记录 ticket query。标准 frontend Nginx 已为 `^/api/v1/sessions/[^/]+/sandbox/terminal$` 配置不含 query 的日志格式；自定义 Ingress 需自行处理。终端连上后，服务端会复核登录状态、空间成员和会话归属。接口参数见[终端 API](../04-api/02-api-sandbox-skills.md#会话交互终端)。
 
-终端和桌面在无操作时按配置的 `terminal_idle_disconnect_sec` 断开（默认 900 秒，最短 60 秒，最长 24 小时），之后沙箱按提供商 TTL 暂停。终端以键盘输入和 PTY 输出计活动，桌面以键鼠计活动。
+终端在无操作时按 `terminal_idle_disconnect_sec` 断开（默认 900 秒，范围 60 秒到 24 小时），键盘输入和 PTY 输出均计为活动；之后由提供商 TTL 决定沙箱暂停。
 
-### 图形桌面
-
-仅 Cube/E2B 桌面模板支持对话侧栏桌面。首次打开时由后端启动桌面进程；配置需选择桌面模板并设置 `desktop_enabled`。技能已安装后不能原地切换底模。
-
-```text
-浏览器 noVNC → WeKnora 票据中继 → 提供商网关 → websockify :6080 → 本机 x11vnc :5900
-```
-
-浏览器不持有沙箱 API Key、入站 token 或 websockify 密码。桌面票据仅可消费一次，完整定义见[会话 API](../04-api/02-api-chat.md#sandbox-desktop)。Cube 桌面模板的 `exposedPorts` 只暴露 envd 的 49983，**不要把 6080 加入宿主机 NAT**，桌面必须经过网关与 WeKnora 中继。
-
-每个会话同时只允许一条桌面中继，多副本槽位由 Redis 协调。沙箱重建后以 `SANDBOX_REBUILT` 提醒断开，不能把新桌面当成保留了原临时文件的旧实例。空闲判断使用 RFB 键鼠活动，截图请求不算用户操作。
+远程桌面的票据、WebSocket 中继和模板构建功能已移除。网页预览使用基础执行环境，不依赖 VNC、XFCE 或 websockify。
 
 ## Lite 本机沙箱
 

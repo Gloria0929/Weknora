@@ -35,11 +35,6 @@ export interface ProgrammingCommandResult {
   killed: boolean
 }
 
-export interface ProgrammingPreviewCapabilities {
-  pinned: boolean
-  desktop_enabled: boolean
-}
-
 export interface ProgrammingGitStatusFile {
   path: string
   old_path?: string
@@ -66,30 +61,6 @@ export interface ProgrammingGitStatus {
   files?: ProgrammingGitStatusFile[]
   message?: string
 }
-export interface ProgrammingPreviewResult {
-  status: 'ready' | 'not_running' | 'starting' | 'start_failed' | 'browser_unavailable' | 'unsupported'
-  url?: string
-  detail?: string
-  viewport?: 'desktop' | 'mobile'
-  width?: number
-  height?: number
-}
-
-export interface ProgrammingPreviewRequest {
-  url?: string
-  start?: boolean
-  action?: 'resize' | 'reload'
-  viewport?: 'desktop' | 'mobile'
-}
-
-export function getProgrammingPreviewCapabilities(sessionId: string) {
-  return get<{ success: boolean; data: ProgrammingPreviewCapabilities }>(`${base(sessionId)}/preview`)
-}
-
-export function openProgrammingPreview(sessionId: string, data: ProgrammingPreviewRequest = {}) {
-  return post<{ success: boolean; data: ProgrammingPreviewResult }>(`${base(sessionId)}/preview`, data, { timeout: 50_000 })
-}
-
 const base = (sessionId: string) => `/api/v1/sessions/${encodeURIComponent(sessionId)}/programming`
 
 export function getProgrammingTree(sessionId: string, path = '') {

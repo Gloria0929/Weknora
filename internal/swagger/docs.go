@@ -22936,10 +22936,6 @@ const docTemplate = `{
                     "description": "DefaultTimeoutSec is the per-execution timeout in seconds. 0 uses the\nprogram's built-in default.",
                     "type": "integer"
                 },
-                "desktop_enabled": {
-                    "description": "DesktopEnabled declares that this config's base template is a desktop\nimage (XFCE + x11vnc + websockify). It is NOT a second template: a\nconfig has exactly one boot target, and skill snapshots stack on top of\nthis base generation after generation. Flipping it changes the base, so\nany installed skills must be rebuilt from the new one.",
-                    "type": "boolean"
-                },
                 "docker": {
                     "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.DockerSandboxConfig"
                 },
@@ -22978,7 +22974,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "terminal_idle_disconnect_sec": {
-                    "description": "TerminalIdleDisconnectSec is how long an interactive terminal or\ndesktop may go without user activity before WeKnora closes the\nconnection so the sandbox can pause on its provider TTL. Terminal\ncounts keystrokes and PTY output; desktop counts mouse and keyboard.\n0 uses the built-in default (15 minutes). Not an identity field.",
+                    "description": "TerminalIdleDisconnectSec is how long a terminal may have no keyboard\ninput or PTY output before its connection closes, allowing provider TTL pause.\n0 uses the built-in default (15 minutes). Not an identity field.",
                     "type": "integer"
                 },
                 "volume_mount": {

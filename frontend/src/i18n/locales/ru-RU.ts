@@ -4240,33 +4240,12 @@ export default {
       panelTitle: "Песочница",
       tabArtifacts: "Файлы",
       tabTerminal: "Терминал",
-      tabDesktop: "Рабочий стол",
       artifactsEmpty: "В этом диалоге пока нет созданных файлов",
       artifactScope: "Область файлов",
       artifactsCurrent: "Этот ответ",
       artifactsAll: "Все файлы",
       artifactsSearch: "Поиск по имени файла",
       artifactsNoMatches: "Нет подходящих файлов",
-      desktopNotStarted:
-        "The desktop is not connected yet. Connecting it attaches to this conversation's sandbox.",
-      desktopStart: "Connect desktop",
-      desktopStarting: "Connecting to the desktop… (3-8 seconds on first use)",
-      desktopUnsupported:
-        "This sandbox config has no desktop. Pick a desktop-image template in the workspace sandbox settings, on a Cube or E2B backend.",
-      desktopBusy:
-        "This conversation already has a desktop open. Only one connection is allowed at a time, otherwise two people share one keyboard and mouse.",
-      desktopStartFailed: "The desktop failed to start. You can retry.",
-      desktopRebuilt:
-        "The sandbox was rebuilt for a skill update, so the previous desktop and any unsaved work are gone. Reconnecting gives you a fresh desktop.",
-      desktopNeedsProvision:
-        "This conversation has no running sandbox. Create and connect starts a new sandbox, billed according to your workspace configuration.",
-      desktopCreateAndStart: "Create and connect",
-      desktopPaused:
-        "This conversation's sandbox is paused. Connecting the desktop resumes it.",
-      desktopDisconnected: "Desktop disconnected",
-      desktopIdleDisconnected:
-        "The desktop disconnected after being idle. The sandbox will pause on its own TTL. You can reconnect.",
-      desktopRetry: "Reconnect",
       notStarted:
         "Терминал ещё не запущен. Запуск подключит его к песочнице этого диалога, создав или возобновив её при необходимости.",
       paused:
@@ -6539,8 +6518,7 @@ export default {
       templateSelectHelp:
         "Templates are loaded from this cluster. The saved configuration stores the ID automatically.",
       templateSelectPlaceholder: "Connect to the cluster to load templates",
-      templateLoadHint:
-        "Введите подключение к кластеру и обновите список. Отсутствующий официальный шаблон CLI собирается из образа Hub. Шаблоны рабочего стола больше по размеру — создайте их отдельной строкой ниже. После смены DNS или образа пересоберите шаблон на соответствующей карточке.",
+      templateLoadHint: "Refresh after connecting. Create the standard template if missing; rebuild it after changing DNS.",
       templateLoadFailed: "Failed to load templates",
       standardTemplateProvisioning:
         "The WeKnora standard template is being created. Refresh shortly to see its status.",
@@ -6551,8 +6529,7 @@ export default {
       connectionPassed:
         "Connection verified. Templates below are loaded from this cluster.",
       connectionPassedTitle: "Cluster connected",
-      templateStepHint:
-        "На этом шаге перечисляются шаблоны кластера; официальный образ CLI собирается из Hub, если его ещё нет. Шаблоны рабочего стола (XFCE) тяжелее и создаются только по кнопке «Создать». После смены DNS или образа пересоберите шаблон на соответствующей карточке. Продолжить можно, когда шаблон готов.",
+      templateStepHint: "Select a ready template to continue. Create the standard template if missing, and rebuild after changing DNS.",
       loadingTemplates: "Loading templates from the cluster...",
       templateBuildingHint:
         "Шаблон собирается. Список обновится автоматически.",
@@ -6564,20 +6541,9 @@ export default {
       createStandardTemplate: "Создать",
       createStandardTemplateHint:
         "Собирается с текущими настройками подключения, включая DNS. После их изменения пересоберите шаблон на карточке.",
-      weknoraDesktopTemplate: "Шаблон рабочего стола WeKnora",
-      createDesktopTemplate: "Создать",
-      createDesktopTemplateHint:
-        "Собирает графический рабочий стол XFCE из официального образа. Он заметно больше шаблона CLI — создавайте его, только если нужен графический интерфейс.",
       replaceStandardTemplate: "Пересобрать",
       replaceStandardTemplateConfirm:
         "Стандартный шаблон WeKnora будет собран заново с текущими настройками, включая DNS. Предыдущий готовый шаблон не удаляется, пока замена не станет готовой к запуску.",
-      desktopTemplateProvisioning:
-        "Шаблон рабочего стола WeKnora создаётся. Обновите список чуть позже, чтобы увидеть статус.",
-      desktopTemplateReplaced:
-        "Предыдущий шаблон рабочего стола удалён, начата пересборка. Дождитесь готовности. Шаблон CLI не затрагивается.",
-      desktopTemplateTag: "Рабочий стол",
-      replaceDesktopTemplateConfirm:
-        "Шаблон рабочего стола WeKnora будет собран заново с текущими настройками, включая DNS. Предыдущий готовый шаблон рабочего стола не удаляется, пока замена не станет готовой к запуску. Шаблон CLI не затрагивается.",
       templateLockedBySkills:
         "В этой песочнице уже установлены навыки. Среда навыков привязана к текущему снимку, поэтому шаблон нельзя сменить или пересобрать. Создайте новую песочницу и установите навыки с нового шаблона.",
       templateLockedByInFlight:
@@ -6670,10 +6636,8 @@ export default {
       defaultTimeout: "Execution timeout (s)",
       defaultTimeoutHelp:
         "Максимальное время одного запуска скрипта навыка; по истечении он прерывается. Пусто — 60 секунд.",
-      terminalIdleDisconnect:
-        "Отключение простоя терминала / рабочего стола (с)",
-      terminalIdleDisconnectHelp:
-        "После открытия терминала или рабочего стола соединение закрывается, если столько времени нет взаимодействия, чтобы песочница могла приостановиться по TTL. Для терминала считаются клавиатура и вывод PTY, для рабочего стола — мышь и клавиатура. Пусто — 900 секунд; минимум 60 секунд, максимум 24 часа.",
+      terminalIdleDisconnect: "Terminal idle disconnect (s)",
+      terminalIdleDisconnectHelp: "Disconnect an idle terminal so the sandbox can pause on its TTL. Keyboard input and PTY output count as activity. Default 900 seconds; range 60 seconds to 24 hours.",
       envVars: "Environment variables",
       envKey: "Name",
       envValue: "Value",

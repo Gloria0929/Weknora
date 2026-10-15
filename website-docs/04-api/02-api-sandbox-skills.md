@@ -26,7 +26,7 @@
 | DELETE | `/sandbox-configs/:id` | 可选 `force=true`；200 `{success:true}` |
 | GET | `/sandbox-configs/:id/sandboxes` | 200 `{success,data:SandboxInventory}`，包含占用和关联智能体 |
 | PUT | `/sandbox-configs/workspace-policy` | `{"scripts_disabled":true}`；返回 success/workspace_scripts_disabled |
-| POST | `/sandbox-configs/templates/query` | `{config,config_id?,ensure_standard?,replace_standard?,ensure_desktop?,replace_desktop?}`；查询远端模板，可创建/替换标准模板或桌面模板，replace 需要 config_id |
+| POST | `/sandbox-configs/templates/query` | `{config,config_id?,ensure_standard?,replace_standard?}`；查询远端模板，可创建/替换标准模板，replace 需要 config_id |
 
 ConfigResponse 为 `{id,name,description,sandbox_type,config,created_at,updated_at}`，凭据脱敏。编辑时以保存的配置为基础更新；脱敏占位值保留旧凭据，`skill_image` 由安装服务维护，客户端不能替换。
 
@@ -36,8 +36,7 @@ ConfigResponse 为 `{id,name,description,sandbox_type,config,created_at,updated_
 | --- | --- | --- |
 | `sandbox_type` | string | docker/cube/e2b；local 已移除；Lite 桌面的 host 不能保存为配置 |
 | `default_timeout_sec` | int | 执行超时，0 使用内置默认 |
-| `terminal_idle_disconnect_sec` | int | 终端/桌面无操作多久断开，0 为默认 900 秒，生效范围 60 秒–24 小时 |
-| `desktop_enabled` | bool | 声明所选模板是 Cube/E2B 桌面模板；已安装技能后不能切换 |
+| `terminal_idle_disconnect_sec` | int | 终端无操作多久断开，0 为默认 900 秒，生效范围 60 秒–24 小时 |
 | `allow_private_endpoints` | bool | 允许私网集群地址，不放行 link-local/云元数据 |
 | `env_vars` | map[string]string | 该沙箱配置的环境，值加密保存 |
 | `skill_rollout` | string | next_turn（默认）/new_session |
@@ -52,7 +51,7 @@ volume_mount 字段包括 enabled、mount_path、provider、volume_id、volume_n
 
 | 后端 | 字段 |
 | --- | --- |
-| cube | api_url、proxy_url、sandbox_domain、template_id；api_key 按集群需要；http_timeout_sec、cube_sandbox_ttl_seconds、dns_servers；desktop_template_image 可指定桌面模板构建镜像副本，留空使用官方默认镜像 |
+| cube | api_url、proxy_url、sandbox_domain、template_id；api_key 按集群需要；http_timeout_sec、cube_sandbox_ttl_seconds、dns_servers |
 | e2b | api_key、template_id 必填；api_url、sandbox_domain、proxy_url 用于自托管；http_timeout_sec、e2b_sandbox_ttl_seconds |
 | docker | image 必填；host（空为本机 socket）、tls_cert_path（TCP 必需）、cpu_limit、memory_limit_mb、pids_limit、network_mode（bridge/none）、runtime、idle_ttl_seconds、http_timeout_sec |
 
@@ -166,7 +165,7 @@ curl -N "$BASE/api/v1/sandbox-configs/cfg-1/skills/skill-1/install-events" \
 
 ## 会话交互终端
 
-对话侧栏的终端通过 WebSocket 连接本会话的远程沙箱，仅 Cube/E2B 支持。路由由 `internal/router/routes_chat.go` 注册，尚未进入 Swagger；桌面接口见[会话 API](02-api-chat.md#sandbox-desktop)，代理要求见[沙箱部署](../06-development/04-sandbox-deployment.md#交互终端与图形桌面)。
+对话侧栏的终端通过 WebSocket 连接本会话的远程沙箱，仅 Cube/E2B 支持。路由由 `internal/router/routes_chat.go` 注册，尚未进入 Swagger；代理要求见[沙箱部署](../06-development/04-sandbox-deployment.md#交互终端)。
 
 ### POST /api/v1/sessions/:session_id/sandbox/terminal-ticket
 

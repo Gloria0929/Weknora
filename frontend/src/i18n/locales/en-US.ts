@@ -1675,8 +1675,7 @@ export default {
       templateSelectHelp:
         "Templates are loaded from this cluster. The saved configuration stores the ID automatically.",
       templateSelectPlaceholder: "Connect to the cluster to load templates",
-      templateLoadHint:
-        "Enter the cluster connection and refresh. Missing WeKnora CLI templates are built from the official Hub image. Desktop templates are larger; create them from the row below. After changing DNS or the image, rebuild from that card.",
+      templateLoadHint: "Refresh after connecting. Create the standard template if missing; rebuild it after changing DNS.",
       templateLoadFailed: "Failed to load templates",
       standardTemplateProvisioning:
         "The WeKnora standard template is being created. Refresh shortly to see its status.",
@@ -1687,8 +1686,7 @@ export default {
       connectionPassed:
         "Connection verified. Templates below are loaded from this cluster.",
       connectionPassedTitle: "Cluster connected",
-      templateStepHint:
-        "This step lists cluster templates and builds the official CLI image if it is missing. Desktop (XFCE) templates are heavier and are created only when you click Create. After changing DNS or the image, rebuild that card. You can continue after a template is ready.",
+      templateStepHint: "Select a ready template to continue. Create the standard template if missing, and rebuild after changing DNS.",
       loadingTemplates: "Loading templates from the cluster...",
       templateBuildingHint:
         "This template is being built. The list will refresh.",
@@ -1700,20 +1698,9 @@ export default {
       createStandardTemplate: "Create",
       createStandardTemplateHint:
         "Built with the current connection settings, including DNS. After changing those settings, rebuild from the card.",
-      weknoraDesktopTemplate: "WeKnora desktop template",
-      createDesktopTemplate: "Create",
-      createDesktopTemplateHint:
-        "Builds an XFCE graphical desktop from the official desktop image. It is much larger than the CLI template; create it only when you need a GUI.",
       replaceStandardTemplate: "Rebuild",
       replaceStandardTemplateConfirm:
         "Rebuild the WeKnora standard template with the current settings, including DNS. The previous spawnable template is not deleted until the replacement is ready.",
-      desktopTemplateProvisioning:
-        "The WeKnora desktop template is being created. Refresh shortly to see its status.",
-      desktopTemplateReplaced:
-        "The previous desktop template was deleted and a rebuild has started. Wait until it is ready. The CLI template is left untouched.",
-      desktopTemplateTag: "Desktop",
-      replaceDesktopTemplateConfirm:
-        "Rebuild the WeKnora desktop template with the current settings, including DNS. The previous spawnable desktop template is not deleted until the replacement is ready. The CLI template is left untouched.",
       templateLockedBySkills:
         "This sandbox already has skills. The skill environment is bound to the current snapshot, so the runtime template cannot be changed or rebuilt. Create a new sandbox and install skills from the new template.",
       templateLockedByInFlight:
@@ -1745,7 +1732,7 @@ export default {
       noEnvVars: "No additional environment variables.",
       fieldRequired: "Required",
       cubeApiKeyOptional:
-        "Optional — leave empty for an unauthenticated self-hosted CubeSandbox",
+        "Required when cluster authentication is enabled; leave empty only for an unauthenticated cluster",
       cubeApiKeyWhere: "How to enable auth on a self-hosted cluster",
       cubeDnsServers: "DNS servers",
       cubeDnsServersHelp:
@@ -1806,9 +1793,8 @@ export default {
       defaultTimeout: "Execution timeout (s)",
       defaultTimeoutHelp:
         "Longest a single skill script may run before it is killed. Empty means 60 seconds.",
-      terminalIdleDisconnect: "Terminal / desktop idle disconnect (s)",
-      terminalIdleDisconnectHelp:
-        "After the terminal or desktop is open, close it if there is no interaction for this long so the sandbox can pause on its TTL. Terminal counts keyboard and PTY output; desktop counts mouse and keyboard. Empty means 900 seconds; minimum 60 seconds, maximum 24 hours.",
+      terminalIdleDisconnect: "Terminal idle disconnect (s)",
+      terminalIdleDisconnectHelp: "Disconnect an idle terminal so the sandbox can pause on its TTL. Keyboard input and PTY output count as activity. Default 900 seconds; range 60 seconds to 24 hours.",
       envVars: "Environment variables",
       envKey: "Name",
       envValue: "Value",
@@ -4310,33 +4296,12 @@ export default {
       panelTitle: "Sandbox",
       tabArtifacts: "Files",
       tabTerminal: "Terminal",
-      tabDesktop: "Desktop",
       artifactsEmpty: "No generated files in this conversation yet.",
       artifactScope: "File scope",
       artifactsCurrent: "This turn",
       artifactsAll: "All files",
       artifactsSearch: "Search filenames",
       artifactsNoMatches: "No matching files",
-      desktopNotStarted:
-        "The desktop is not connected yet. Connecting it attaches to this conversation's sandbox.",
-      desktopStart: "Connect desktop",
-      desktopStarting: "Connecting to the desktop… (3-8 seconds on first use)",
-      desktopUnsupported:
-        "This sandbox config has no desktop. Pick a desktop-image template in the workspace sandbox settings, on a Cube or E2B backend.",
-      desktopBusy:
-        "This conversation already has a desktop open. Only one connection is allowed at a time, otherwise two people share one keyboard and mouse.",
-      desktopStartFailed: "The desktop failed to start. You can retry.",
-      desktopRebuilt:
-        "The sandbox was rebuilt for a skill update, so the previous desktop and any unsaved work are gone. Reconnecting gives you a fresh desktop.",
-      desktopNeedsProvision:
-        "This conversation has no running sandbox. Create and connect starts a new sandbox, billed according to your workspace configuration.",
-      desktopCreateAndStart: "Create and connect",
-      desktopPaused:
-        "This conversation's sandbox is paused. Connecting the desktop resumes it.",
-      desktopDisconnected: "Desktop disconnected",
-      desktopIdleDisconnected:
-        "The desktop disconnected after being idle. The sandbox will pause on its own TTL. You can reconnect.",
-      desktopRetry: "Reconnect",
       notStarted:
         "The terminal is not running yet. Starting it connects to this conversation's sandbox, creating or resuming one if none is available.",
       paused:
