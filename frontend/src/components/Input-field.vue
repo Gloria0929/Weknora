@@ -49,6 +49,8 @@ import {
 } from "@/api/agent";
 import { useChatResourcesStore } from "@/stores/chatResources";
 import { useEditorResourcesStore } from "@/stores/editorResources";
+import { useDeploymentCapabilitiesStore } from "@/stores/deploymentCapabilities";
+import { hostSkillsOnly, mentionSkillTargetId } from "@/utils/skillTarget";
 import { useI18n } from "vue-i18n";
 import AttachmentUpload, { type AttachmentFile } from "./AttachmentUpload.vue";
 import {
@@ -94,6 +96,7 @@ const orgStore = useOrganizationStore();
 const menuStore = useMenuStore();
 const chatResources = useChatResourcesStore();
 const editorResources = useEditorResourcesStore();
+const deploymentCapabilities = useDeploymentCapabilitiesStore();
 const {
   agents,
   disabledOwnAgentIds,
@@ -1400,7 +1403,7 @@ const updateModelDropdownPosition = () => {
     height: rect.height,
   });
 
-  const dropdownWidth = 280;
+  const dropdownWidth = 320;
   const offsetY = 8;
   const { width: vw, height: vh } = cssViewportSize(zoom);
 
@@ -1487,6 +1490,8 @@ const updateModelDropdownPosition = () => {
 // Mention Logic
 let lastMentionQuery = "";
 let pendingMentionLoads = 0;
+// 关键词变化时旧请求可能晚于新请求返回；只采纳最新一次加载的结果
+let mentionLoadSeq = 0;
 const loadMentionItems = async (
   q: string,
   resetIndex = true,
@@ -1514,6 +1519,11 @@ const fetchMentionItems = async (
     append,
   );
 
+  const seq = append ? mentionLoadSeq : ++mentionLoadSeq;
+  const isStale = () => seq !== mentionLoadSeq;
+  const nextGroupCounts: Partial<Record<MentionItemType, number>> = append
+    ? mentionGroupCounts.value
+    : {};
   if (!append) {
     mentionOffset.value = 0;
   }
@@ -1645,7 +1655,7 @@ const fetchMentionItems = async (
         };
       }),
     );
-    mentionGroupCounts.value.kb = kbItems.length;
+    nextGroupCounts.kb = kbItems.length;
 
     const tagKeyword = q.trim();
     const tagSources = availableKbs;
@@ -1673,7 +1683,7 @@ const fetchMentionItems = async (
         }),
       );
       tagItems = tagResults.flat();
-      mentionGroupCounts.value.tag = tagItems.length;
+      nextGroupCounts.tag = tagItems.length;
     } catch (e) {
       console.error("[Mention] listKnowledgeTags error:", e);
       tagItems = [];
@@ -1697,9 +1707,17 @@ const fetchMentionItems = async (
     const skillsMode = agentSkillsSelectionMode.value;
     if (skillsMode !== "none") {
       // The scope makes a shared agent's skills resolve in its owner's
-      // workspace, where they are actually installed.
+      // workspace, where they are actually installed. Lite agents store no
+      // sandbox config id; their skills live on the host target.
+      await deploymentCapabilities.ensureLoaded();
       await editorResources.ensureSkills(
-        currentAgentConfig.value?.sandbox_config_id,
+        mentionSkillTargetId(
+          hostSkillsOnly(
+            deploymentCapabilities.isSupported("settings.sandbox.remote"),
+            deploymentCapabilities.isSupported("settings.sandbox.host"),
+          ),
+          currentAgentConfig.value?.sandbox_config_id,
+        ),
         currentAgentScope.value,
       );
       skillItems = editorResources.skills
@@ -1758,6 +1776,7 @@ const fetchMentionItems = async (
         fileTypesParam,
         searchOptions,
       );
+      if (isStale()) return;
       console.log("[Mention] searchKnowledge response:", res);
       if (res.data && Array.isArray(res.data)) {
         let files = res.data;
@@ -1801,22 +1820,26 @@ const fetchMentionItems = async (
           const clientFiltered =
             !!mentionAllowedKbIds.value && fileItems.length < apiPageSize;
           if (!clientFiltered && rawTotal != null) {
-            mentionGroupCounts.value.file = rawTotal;
+            nextGroupCounts.file = rawTotal;
           } else {
-            delete mentionGroupCounts.value.file;
+            delete nextGroupCounts.file;
           }
         }
       }
       mentionHasMore.value = res.has_more || false;
       mentionOffset.value += fileItems.length;
     } catch (e) {
+      if (isStale()) return;
       console.error("[Mention] searchKnowledge error:", e);
       mentionHasMore.value = false;
     }
   } else {
+    if (isStale()) return;
     mentionHasMore.value = false;
   }
 
+  if (isStale()) return;
+  if (!append) mentionGroupCounts.value = nextGroupCounts;
   if (append) {
     // Append file items to existing list
     mentionItems.value = [...mentionItems.value, ...fileItems];
@@ -1852,6 +1875,21 @@ const loadMoreMentionItems = () => {
   if (mentionHasMore.value && !mentionLoading.value) {
     loadMentionItems(lastMentionQuery, false, true);
   }
+};
+
+let mentionSearchTimer: ReturnType<typeof setTimeout> | null = null;
+const onMentionSearchInput = (q: string) => {
+  mentionQuery.value = q;
+  if (mentionSearchTimer) clearTimeout(mentionSearchTimer);
+  mentionSearchTimer = setTimeout(() => {
+    mentionSearchTimer = null;
+    loadMentionItems(q, true);
+  }, 180);
+};
+
+const closeMentionFromPopup = () => {
+  showMention.value = false;
+  void focusInput();
 };
 
 const getTextareaEl = () => {
@@ -1923,10 +1961,8 @@ const onInput = (inputVal: string) => {
       showMention.value = false;
       return;
     }
-    // Only reload if query changed
     if (q !== mentionQuery.value) {
-      mentionQuery.value = q;
-      loadMentionItems(q, true); // Reset index when query changes
+      onMentionSearchInput(q);
     }
   } else {
     if (textBeforeCursor.endsWith("@")) {
@@ -1947,7 +1983,7 @@ const onInput = (inputVal: string) => {
       const rect = rectToCssPx(textarea.getBoundingClientRect(), zoom);
       const { width: vw, height: vh } = cssViewportSize(zoom);
       const scrollTop = textarea.scrollTop;
-      const menuHeight = 320; // 预估最大高度
+      const menuHeight = 380; // 预估最大高度
 
       let left = rect.left + coords.left;
       // Prevent menu from going off-screen horizontally
@@ -1980,6 +2016,7 @@ const onInput = (inputVal: string) => {
         };
       }
 
+      if (mentionSearchTimer) clearTimeout(mentionSearchTimer);
       loadMentionItems("");
     }
   }
@@ -2027,7 +2064,7 @@ const triggerMention = () => {
   const zoom = getRootZoom();
   const rect = rectToCssPx(textarea.getBoundingClientRect(), zoom);
   const { height: vh } = cssViewportSize(zoom);
-  const menuHeight = 320;
+  const menuHeight = 380;
 
   // 判断输入框上方空间
   const spaceAbove = rect.top;
@@ -2050,6 +2087,7 @@ const triggerMention = () => {
     };
   }
 
+  if (mentionSearchTimer) clearTimeout(mentionSearchTimer);
   loadMentionItems("");
 };
 
@@ -2146,6 +2184,9 @@ const toggleModelSelector = () => {
         updateModelDropdownPosition();
         setTimeout(() => {
           updateModelDropdownPosition();
+          document
+            .querySelector(".model-selector-content .model-option.selected")
+            ?.scrollIntoView({ block: "nearest" });
         }, 50);
       });
     });
@@ -2274,6 +2315,7 @@ onUnmounted(() => {
   document.removeEventListener("click", closeAgentModeSelector);
   document.removeEventListener("click", closeModelSelector);
   document.removeEventListener("click", closeMentionSelector);
+  if (mentionSearchTimer) clearTimeout(mentionSearchTimer);
   if (resizeHandler) {
     window.removeEventListener("resize", resizeHandler);
   }
@@ -2296,23 +2338,14 @@ watch(
   },
 );
 
+// 模型 / 联网搜索列表由设置页在写操作后直接写回 chatResources
+// （replaceModels / ensureWebSearchProviders(true)），这里读的是同一份快照，
+// 不再靠「设置弹窗关闭」「离开设置路由」两个信号各强刷一次。
 watch(
   () => uiStore.showSettingsModal,
   (visible, prevVisible) => {
-    if (prevVisible && !visible) {
-      loadWebSearchConfig(true);
-      loadChatModels(true);
-      if (!props.embeddedMode) void browserConnection.refresh();
-    }
-  },
-);
-
-watch(
-  () => route.path,
-  (path, prev) => {
-    if (prev === "/platform/settings" && path !== "/platform/settings") {
-      loadWebSearchConfig(true);
-      loadChatModels(true);
+    if (prevVisible && !visible && !props.embeddedMode) {
+      void browserConnection.refresh();
     }
   },
 );
@@ -2448,7 +2481,7 @@ const createSession = async (
     return;
   }
 
-  if (!chatResources.isFresh("models")) {
+  if (!chatResources.isLoaded("models")) {
     await loadChatModels();
   }
 
@@ -2611,7 +2644,7 @@ const toggleAgentModeSelector = () => {
 
   showAgentModeSelector.value = !showAgentModeSelector.value;
   if (showAgentModeSelector.value) {
-    if (!chatResources.isFresh("agents")) {
+    if (!chatResources.isLoaded("agents")) {
       void loadAgents(true);
     }
     // 多次更新位置确保准确
@@ -2628,7 +2661,7 @@ const toggleAgentModeSelector = () => {
 };
 
 const selectAgentMode = async (mode: "quick-answer" | "smart-reasoning") => {
-  if (!chatResources.isFresh("models")) {
+  if (!chatResources.isLoaded("models")) {
     await loadChatModels();
   }
 
@@ -2678,7 +2711,7 @@ const handleSelectAgent = async (
   agent: CustomAgent,
   sourceTenantId?: string,
 ) => {
-  if (!chatResources.isFresh("models")) {
+  if (!chatResources.isLoaded("models")) {
     await loadChatModels();
   }
 
@@ -2797,6 +2830,12 @@ const onKeydown = (val: string, event: { e: KeyboardEvent }) => {
       // Enter
       event.e.preventDefault();
       mentionSelectorRef.value?.confirmActive();
+      return;
+    }
+    if (event.e.keyCode === 9 && !event.e.shiftKey) {
+      // Tab
+      if (mentionSelectorRef.value?.enterActiveGroup())
+        event.e.preventDefault();
       return;
     }
     if (event.e.keyCode === 27) {
@@ -3632,9 +3671,6 @@ defineExpose({
                   stroke-linejoin="round"
                 />
               </svg>
-              <span v-if="allSelectedItems.length > 0" class="kb-count">{{
-                allSelectedItems.length
-              }}</span>
             </button>
           </t-tooltip>
 
@@ -3779,9 +3815,6 @@ defineExpose({
                   @click="handleModelChange(model.id || '')"
                 >
                   <div class="model-option-left">
-                    <div class="model-option-icon">
-                      <t-icon name="chat" size="14px" />
-                    </div>
                     <div class="model-option-name-wrap">
                       <span class="model-option-name">{{
                         modelDisplayName(model)
@@ -3807,6 +3840,13 @@ defineExpose({
                       formatContextWindow(model.parameters?.context_window)
                     }}</span
                   >
+                  <span class="model-option-check">
+                    <t-icon
+                      v-if="model.id === selectedModelId"
+                      name="check"
+                      size="14px"
+                    />
+                  </span>
                 </div>
                 <div
                   v-if="availableModels.length === 0"
@@ -3869,8 +3909,11 @@ defineExpose({
         :loading="mentionLoading"
         :emptyHint="mentionEmptyHint"
         :query="mentionQuery"
+        :searchable="isMentionTriggeredByButton"
         :group-counts="mentionGroupCounts"
         v-model:activeIndex="mentionActiveIndex"
+        @update:query="onMentionSearchInput"
+        @close="closeMentionFromPopup"
         @select="onMentionSelect"
         @loadMore="loadMoreMentionItems"
       />
@@ -4011,7 +4054,8 @@ const getImgSrc = (url: string) => {
   border: 1px solid var(--td-component-stroke);
   box-shadow:
     0 2px 8px color-mix(in srgb, var(--td-text-color-primary) 4%, transparent),
-    0 8px 16px -4px color-mix(in srgb, var(--td-text-color-primary) 6%, transparent);
+    0 8px 16px -4px
+      color-mix(in srgb, var(--td-text-color-primary) 6%, transparent);
 
   &:focus-within {
     border-color: var(--td-brand-color);
@@ -4023,12 +4067,15 @@ const getImgSrc = (url: string) => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 5px;
-  padding: 6px 12px 6px;
-  border-bottom: 1px solid var(--td-component-stroke);
+  gap: 6px;
+  padding: 12px 16px 0;
   background: var(--td-bg-color-container);
   border-radius: 11px 11px 0 0;
   /* 与 .rich-input-container 内缘上边圆角一致（12px - 1px 边框） */
+}
+
+.rich-input-container:has(.selected-tags-inline) :deep(.t-textarea__inner) {
+  padding-top: 8px;
 }
 
 .mention-chip {
@@ -4081,7 +4128,8 @@ const getImgSrc = (url: string) => {
   height: 8px;
   border-radius: 50%;
   background: var(--td-bg-color-secondarycontainer);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--td-text-color-primary) 6%, transparent);
+  box-shadow: 0 0 0 1px
+    color-mix(in srgb, var(--td-text-color-primary) 6%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4225,7 +4273,7 @@ const getImgSrc = (url: string) => {
 /* 控制栏 */
 .control-bar {
   position: relative;
-  margin: 0 16px 12px;
+  margin: 0 12px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -4261,7 +4309,7 @@ const getImgSrc = (url: string) => {
 .control-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   flex: 1;
   flex-wrap: wrap;
   min-width: 0;
@@ -4300,11 +4348,14 @@ const getImgSrc = (url: string) => {
 
 .agent-mode-btn {
   height: 28px;
-  padding: 0 10px;
+  padding: 0 8px 0 10px;
+  margin-right: 4px;
+  box-sizing: border-box;
   min-width: auto;
   font-weight: 500;
   position: relative;
-  border: 0.5px solid var(--td-component-border);
+  border-radius: var(--app-radius-pill);
+  background: var(--td-bg-color-secondarycontainer);
 }
 
 .agent-icon {
@@ -4329,7 +4380,7 @@ const getImgSrc = (url: string) => {
   color: var(--td-text-color-secondary);
   font-weight: 500;
   white-space: nowrap;
-  margin: 0 4px;
+  margin: 0 2px;
 }
 
 .control-icon {
@@ -4376,28 +4427,6 @@ const getImgSrc = (url: string) => {
       background: var(--td-bg-color-secondarycontainer);
     }
   }
-}
-
-.kb-count {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  min-width: 14px;
-  height: 14px;
-  padding: 0 3px;
-  border-radius: 7px;
-  background: var(--td-brand-color);
-  color: var(--td-text-color-anti);
-  font-size: var(--app-text-2xs);
-  font-weight: 600;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  pointer-events: none;
 }
 
 .kb-btn-text {
@@ -4673,6 +4702,7 @@ const getImgSrc = (url: string) => {
   width: 28px;
   height: 28px;
   padding: 0;
+  border-radius: 50%;
   box-sizing: border-box;
   font-size: var(--app-text-xl);
   line-height: 1;
@@ -4688,8 +4718,14 @@ const getImgSrc = (url: string) => {
   background-color: var(--td-brand-color);
   color: var(--td-text-color-anti);
 
-  &:hover {
-    background-color: var(--td-brand-color);
+  &.disabled {
+    opacity: 1;
+    background-color: var(--td-bg-color-component);
+    color: var(--td-text-color-placeholder);
+
+    &:hover {
+      background-color: var(--td-bg-color-component);
+    }
   }
 
   img {
@@ -4702,7 +4738,6 @@ const getImgSrc = (url: string) => {
 .model-selector-trigger.reasoning-effort-trigger {
   flex-shrink: 0;
   min-width: 0;
-  box-sizing: content-box;
   background: transparent;
   font: inherit;
 }
@@ -4770,11 +4805,11 @@ const getImgSrc = (url: string) => {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 8px;
-  min-width: 100px;
-  height: 22px;
+  padding: 0 8px;
+  height: 28px;
+  box-sizing: border-box;
+  border: 0;
   border-radius: var(--app-radius-sm);
-  border: 0.5px solid var(--td-component-border);
   transition:
     background var(--app-motion-instant),
     border-color var(--app-motion-instant);
@@ -4873,7 +4908,7 @@ const getImgSrc = (url: string) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 10px;
+  padding: 8px 8px 8px 16px;
   border-bottom: 0.5px solid var(--td-component-stroke);
   background: var(--td-bg-color-container);
   font-size: var(--app-text-sm);
@@ -4926,15 +4961,20 @@ const getImgSrc = (url: string) => {
   cursor: pointer;
   transition: background var(--app-motion-instant);
   border-radius: var(--app-radius-sm);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 
   &:last-child {
     margin-bottom: 0;
   }
 
-  &:hover,
-  &.selected {
+  &:hover {
     background: var(--td-bg-color-secondarycontainer);
+  }
+
+  &.selected .model-option-name,
+  &.selected .model-option-check {
+    color: var(--td-brand-color);
+    font-weight: 500;
   }
 
   &.empty {
@@ -4957,14 +4997,13 @@ const getImgSrc = (url: string) => {
   flex: 1;
 }
 
-.model-option-icon {
-  width: 16px;
-  height: 16px;
+.model-option-check {
+  width: 14px;
+  height: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: var(--td-text-color-secondary);
 }
 
 .model-option-name-wrap {
@@ -4994,10 +5033,7 @@ const getImgSrc = (url: string) => {
   flex-shrink: 0;
   font-size: var(--app-text-xs);
   font-variant-numeric: tabular-nums;
-  color: var(--td-text-color-secondary);
-  background: var(--td-bg-color-secondarycontainer);
-  padding: 0 6px;
-  border-radius: var(--app-radius-xs);
+  color: var(--td-text-color-placeholder);
   line-height: 18px;
 
   &.is-default {

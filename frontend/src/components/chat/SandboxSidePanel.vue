@@ -4,7 +4,10 @@
       <aside
         class="chat-sandbox-panel"
         :class="{ 'is-shifted': shifted, 'is-resizing': resizing }"
-        :style="{ width: `${panel?.width.value ?? 420}px` }"
+        :style="{
+          width: `${panel?.width.value ?? 420}px`,
+          '--references-shift': `${shiftWidth}px`,
+        }"
         role="complementary"
         :aria-label="t('workspace.panelTitle')"
         @keydown.esc.stop="panel?.close()"
@@ -57,7 +60,9 @@
               aria-haspopup="menu"
             >
               <t-icon :name="activeMoreTool?.icon || 'ellipsis'" size="16px" />
-              <span>{{ activeMoreTool?.label || t('workspace.moreTools') }}</span>
+              <span>{{
+                activeMoreTool?.label || t("workspace.moreTools")
+              }}</span>
               <t-icon v-if="activeMoreTool" name="chevron-down" size="12px" />
             </button>
           </t-dropdown>
@@ -187,6 +192,8 @@ const props = withDefaults(
     agentSourceTenantId?: string | number | null;
     /** 参考来源面板同开时整体左移，避免两块 fixed 面板重叠。 */
     shifted?: boolean;
+    /** 参考来源面板当前宽度（查看原文时会变宽），左移的距离。 */
+    shiftWidth?: number;
     artifacts?: SessionArtifactItem[];
     artifactsCollecting?: boolean;
     workspaceRevision?: number;
@@ -197,6 +204,7 @@ const props = withDefaults(
   {
     artifacts: () => [],
     artifactsCollecting: false,
+    shiftWidth: 420,
   },
 );
 
@@ -211,9 +219,17 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 const panel = useChatSandboxPanel();
-watch(() => [props.sessionId, panel?.visible.value, panel?.activeTab.value], () => {
-  if (props.sessionId && panel?.visible.value && panel.activeTab.value === 'artifacts') emit('refreshArtifacts')
-});
+watch(
+  () => [props.sessionId, panel?.visible.value, panel?.activeTab.value],
+  () => {
+    if (
+      props.sessionId &&
+      panel?.visible.value &&
+      panel.activeTab.value === "artifacts"
+    )
+      emit("refreshArtifacts");
+  },
+);
 const workspaceMounted = ref(false);
 const isWorkspaceTab = computed(
   () =>
@@ -243,17 +259,21 @@ const tabs = computed(() => {
 
 // Less frequent tools remain available without occupying the default tab bar.
 const moreTools = computed(() => [
-  { id: 'terminal', icon: 'terminal', label: t('chat.sandbox.tabTerminal') },
+  { id: "terminal", icon: "terminal", label: t("chat.sandbox.tabTerminal") },
 ]);
-const activeMoreTool = computed(() => moreTools.value.find(tool => tool.id === panel?.activeTab.value));
-const moreOptions = computed(() => moreTools.value.map(tool => ({
-  content: tool.label,
-  prefixIcon: () => h(TIcon, { name: tool.icon, size: '16px' }),
-  value: tool.id,
-  active: tool.id === panel?.activeTab.value,
-})));
+const activeMoreTool = computed(() =>
+  moreTools.value.find((tool) => tool.id === panel?.activeTab.value),
+);
+const moreOptions = computed(() =>
+  moreTools.value.map((tool) => ({
+    content: tool.label,
+    prefixIcon: () => h(TIcon, { name: tool.icon, size: "16px" }),
+    value: tool.id,
+    active: tool.id === panel?.activeTab.value,
+  })),
+);
 function openMoreTool(option: { value?: unknown }) {
-  if (option.value === 'terminal') panel?.open(option.value);
+  if (option.value === "terminal") panel?.open(option.value);
 }
 
 // 终端 / 预览惰性挂载（首次切到对应 tab 时），面板关闭即销毁（v-if），
@@ -335,7 +355,7 @@ function resizePanel(delta: number) {
 
   &.is-shifted {
     @media (min-width: 1400px) {
-      right: 420px;
+      right: var(--references-shift, 420px);
     }
   }
 
@@ -444,7 +464,9 @@ function resizePanel(delta: number) {
   font-variant-numeric: tabular-nums;
 }
 
-.chat-sandbox-panel__more { flex-shrink: 0; }
+.chat-sandbox-panel__more {
+  flex-shrink: 0;
+}
 
 .chat-sandbox-panel__body {
   flex: 1;

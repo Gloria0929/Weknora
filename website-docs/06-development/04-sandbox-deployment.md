@@ -97,7 +97,7 @@ Cube/E2B 的新会话沙箱使用 `onTimeout=pause`、`autoResume=true`：TTL �
 
 ## 交互终端
 
-对话侧栏的终端通过 WebSocket 连接会话沙箱，仅 Cube/E2B 支持，Docker 后端不提供。浏览器不能在 WebSocket 握手里携带认证头，因此先用已登录的 POST 换取短期票据，再把票据放在握手 query 中：
+对话侧栏的终端通过 WebSocket 连接会话沙箱，支持 Cube/E2B 和 Docker。浏览器不能在 WebSocket 握手里携带认证头，因此先用已登录的 POST 换取短期票据，再把票据放在握手 query 中：
 
 | 能力 | 取票据 | WebSocket |
 | --- | --- | --- |
@@ -108,6 +108,14 @@ Cube/E2B 的新会话沙箱使用 `onTimeout=pause`、`autoResume=true`：TTL �
 终端在无操作时按 `terminal_idle_disconnect_sec` 断开（默认 900 秒，范围 60 秒到 24 小时），键盘输入和 PTY 输出均计为活动；之后由提供商 TTL 决定沙箱暂停。
 
 远程桌面的票据、WebSocket 中继和模板构建功能已移除。网页预览使用基础执行环境，不依赖 VNC、XFCE 或 websockify。
+
+Docker 终端是一个 `TTY=true` 的 exec，Engine API 不支持重新附着，因此行为与 Cube/E2B 不同：
+
+- 终端打开期间会定期刷新空闲回收用的活动标记，容器不会因 `DockerIdleTTL` 被回收；关闭后按 `DockerIdleTTL` 正常回收。
+- 终端断开（关闭面板、空闲断开、网络中断）时，WeKnora 会像关闭终端窗口一样向该 Shell 及其子进程发送 SIGHUP，前台任务随之结束，`nohup` 启动的后台任务保留。
+- 前端不会对 Docker 终端自动重连，用户点「重新连接」会得到一个新 Shell。
+- 沙箱未运行时（容器已停止或已被空闲回收）提示「可能已被回收」，启动后若容器已被删除会新建沙箱，之前的文件不会保留。
+
 
 ## Lite 本机沙箱
 

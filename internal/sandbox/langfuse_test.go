@@ -84,7 +84,7 @@ func TestWrapLangfuseRemoteClientPreservesTerminalCapability(t *testing.T) {
 }
 
 func TestWrapLangfuseRemoteClientDoesNotInventTerminalSupport(t *testing.T) {
-	// Docker advertises no terminal support; wrapping must not fake it.
+	// The fake advertises no terminal support; wrapping must not fake it.
 	inner := newFakeRemoteClient(SandboxTypeDocker)
 	wrapped := wrapLangfuseRemoteClient(inner)
 	mgr, ok := TerminalManagerFrom(wrapped)

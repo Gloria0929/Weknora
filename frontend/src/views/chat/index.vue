@@ -6,7 +6,10 @@
       'has-references-panel': referencesDrawerVisible,
       'has-sandbox-panel': sandboxPanel.visible.value,
     }"
-    :style="{ '--sandbox-panel-width': `${sandboxPanel.width.value}px` }"
+    :style="{
+      '--sandbox-panel-width': `${sandboxPanel.width.value}px`,
+      '--references-panel-width': `${referencesPanelWidth}px`,
+    }"
   >
     <div v-if="!embeddedMode" class="chat-topbar">
       <ChatHeader :session="currentSession" />
@@ -262,7 +265,7 @@
                   :follow-up-loading="
                     Boolean(
                       session.suggestionLoading &&
-                      !session.suggestionSet?.questions?.length,
+                        !session.suggestionSet?.questions?.length,
                     )
                   "
                   :can-fork="
@@ -392,6 +395,7 @@
       useSettingsStoreInstance.selectedAgentSourceTenantId
     "
     :shifted="referencesDrawerVisible"
+    :shift-width="referencesPanelWidth"
     :artifacts="sessionArtifacts"
     :artifacts-collecting="sessionArtifactsCollecting"
     :workspace-revision="workspaceRevision"
@@ -522,7 +526,8 @@ const referencesDrawer = provideChatReferencesDrawer();
 provideChatAttachmentPreviewDrawer();
 const sandboxPanel = provideChatSandboxPanel();
 const fileChanges = provideFileChanges();
-const { visible: referencesDrawerVisible } = referencesDrawer;
+const { visible: referencesDrawerVisible, panelWidth: referencesPanelWidth } =
+  referencesDrawer;
 
 const props = defineProps({
   session_id: { type: String, default: "" },
@@ -635,7 +640,9 @@ let fileChangeSequence = 0;
 /** Store one write/edit so the workspace code view can render its diff. */
 function recordWorkspaceFileChange(change, live) {
   const liveMessage = live
-    ? messagesList.find(message => message.id === currentAssistantMessageId.value)
+    ? messagesList.find(
+        (message) => message.id === currentAssistantMessageId.value,
+      )
     : undefined;
   fileChanges.addChange({
     id: `${change.path}-${++fileChangeSequence}`,
@@ -647,7 +654,13 @@ function recordWorkspaceFileChange(change, live) {
     removedLines: change.removedLines,
     timestamp: Date.now(),
     live,
-    turnId: change.turnId || (live ? String(liveMessage?.request_id || currentAssistantMessageId.value || '') : undefined),
+    turnId:
+      change.turnId ||
+      (live
+        ? String(
+            liveMessage?.request_id || currentAssistantMessageId.value || "",
+          )
+        : undefined),
   });
 }
 
@@ -697,7 +710,10 @@ function openCompletedWorkspacePanel() {
     return;
   // The reader is reviewing changes. Completion may update the file list,
   // but switching to preview/tests requires the reader's own action.
-  if (sandboxPanel.activeTab.value === "source" && workspaceFileView.value === "diff")
+  if (
+    sandboxPanel.activeTab.value === "source" &&
+    workspaceFileView.value === "diff"
+  )
     return;
   // Verification can follow edits made through shell_exec as well as the
   // file tools. Keep the current code/preview view unless tests were requested.
@@ -961,23 +977,41 @@ async function handleRewind(messageId) {
 
 const testReportArtifacts = ref([]);
 const sessionArtifacts = computed(() => {
-  const items = [...collectSessionArtifacts(messagesList), ...testReportArtifacts.value];
-  return [...new Map(items.map(item => [`${item.messageId}:${item.index}`, item])).values()];
+  const items = [
+    ...collectSessionArtifacts(messagesList),
+    ...testReportArtifacts.value,
+  ];
+  return [
+    ...new Map(
+      items.map((item) => [`${item.messageId}:${item.index}`, item]),
+    ).values(),
+  ];
 });
 let testReportRequest = 0;
-watch(session_id, () => { testReportRequest++; testReportArtifacts.value = []; });
+watch(session_id, () => {
+  testReportRequest++;
+  testReportArtifacts.value = [];
+});
 async function refreshTestReportArtifacts() {
-  const sid = session_id.value, request = ++testReportRequest;
+  const sid = session_id.value,
+    request = ++testReportRequest;
   if (!sid) return;
   try {
     const runs = await workspaceTestsAPI.runs(sid);
-    const ids = [...new Set(runs.map(run => run.report_message_id).filter(Boolean))];
-    const groups = await Promise.all(ids.map(async messageId => {
-      const res = await listMessageArtifacts(sid, messageId);
-      return (res?.data || []).map(item => ({ ...item, messageId }));
-    }));
-    if (sid === session_id.value && request === testReportRequest) testReportArtifacts.value = groups.flat();
-  } catch (error) { console.error('Could not refresh test report artifacts', error); }
+    const ids = [
+      ...new Set(runs.map((run) => run.report_message_id).filter(Boolean)),
+    ];
+    const groups = await Promise.all(
+      ids.map(async (messageId) => {
+        const res = await listMessageArtifacts(sid, messageId);
+        return (res?.data || []).map((item) => ({ ...item, messageId }));
+      }),
+    );
+    if (sid === session_id.value && request === testReportRequest)
+      testReportArtifacts.value = groups.flat();
+  } catch (error) {
+    console.error("Could not refresh test report artifacts", error);
+  }
 }
 
 // Auto-delete old workspace-source.zip artifacts, keeping only the latest.
@@ -1013,7 +1047,9 @@ watch(
 // history so the computed drops it without reloading the conversation.
 function handleArtifactDeleted({ messageId, index }) {
   markSessionArtifactDeleted(messagesList, messageId, index);
-  testReportArtifacts.value = testReportArtifacts.value.filter(item => item.messageId !== messageId || item.index !== index);
+  testReportArtifacts.value = testReportArtifacts.value.filter(
+    (item) => item.messageId !== messageId || item.index !== index,
+  );
 }
 const sessionArtifactsCollecting = computed(() =>
   messagesList.some((message) => isCollectingSkillArtifacts(message)),
@@ -1072,6 +1108,13 @@ watch(historyLoading, (pending) => {
     recordWorkspaceFileChange(change, false);
   }
 });
+watch(
+  activitySessionId,
+  (id) => {
+    if (!props.embeddedMode) sessionActivity.setViewing(id);
+  },
+  { flush: "sync" },
+);
 const historyLoadingMore = ref(false);
 const hasMoreHistory = ref(true);
 
@@ -2533,7 +2576,7 @@ onBeforeRouteUpdate((to, from, next) => {
 
   &.has-references-panel:not(.is-embedded) {
     @media (min-width: 960px) {
-      padding-right: 420px;
+      padding-right: var(--references-panel-width, 420px);
       box-sizing: border-box;
 
       .chat_scroll_box {
@@ -2553,7 +2596,9 @@ onBeforeRouteUpdate((to, from, next) => {
 
   &.has-sandbox-panel.has-references-panel:not(.is-embedded) {
     @media (min-width: 1400px) {
-      padding-right: calc(420px + var(--sandbox-panel-width, 420px));
+      padding-right: calc(
+        var(--references-panel-width, 420px) + var(--sandbox-panel-width, 420px)
+      );
     }
 
     @media (max-width: 1399.98px) and (min-width: 960px) {
@@ -2924,13 +2969,54 @@ onBeforeRouteUpdate((to, from, next) => {
 
 <style lang="less">
 .chat-rewind-popconfirm {
-  max-width: 260px;
+  .t-popconfirm__content {
+    width: 280px;
+    max-width: calc(100vw - 24px);
+    padding: 14px 16px 12px;
+    box-sizing: border-box;
+  }
 
-  .t-popconfirm__content,
-  .t-popup__content {
-    max-width: 260px;
+  .t-popconfirm__body {
+    gap: 8px;
+  }
+
+  .t-popconfirm__body > .t-icon {
+    flex-shrink: 0;
+    margin: 0;
+    padding: 3px 0 0;
+    font-size: var(--app-text-xl);
+  }
+
+  .t-popconfirm__inner {
+    flex: 1;
+    min-width: 0;
+    max-width: none;
     white-space: normal;
-    line-height: 1.5;
+  }
+
+  .chat-rewind-confirm__title {
+    font-size: var(--app-text-base);
+    font-weight: 500;
+    line-height: 22px;
+    color: var(--td-text-color-primary);
+  }
+
+  .chat-rewind-confirm__body {
+    margin-top: 2px;
+    font-size: var(--app-text-md);
+    line-height: 20px;
+    color: var(--td-text-color-secondary);
+  }
+
+  .t-popconfirm__buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 12px;
+
+    .t-popconfirm__confirm {
+      margin-left: 0;
+    }
   }
 }
 </style>

@@ -187,7 +187,7 @@
         </div>
 
         <!-- 注册 -->
-        <div v-else class="auth-card">
+        <div v-else-if="registrationEnabled" class="auth-card">
           <div v-if="inviteLookup" class="invite-banner">
             <t-icon name="link" class="invite-banner__icon" />
             <div class="invite-banner__text">
@@ -308,6 +308,7 @@ import { useRoute, useRouter } from "vue-router";
 import { MessagePlugin } from "tdesign-vue-next";
 import { useRoleLabel } from "@/composables/useRoleLabel";
 import { notifyLoginSuccess } from "@/utils/loginNotify";
+import { canRegister } from "./registrationPolicy";
 import { newPasswordRules } from "@/utils/passwordPolicy";
 import {
   login,
@@ -341,6 +342,7 @@ const { currentTheme, setTheme } = useTheme();
 // WeKnora_anon_theme，登录时由 preferenceStorage 迁移给用户。
 const LOCALE_LABEL_KEYS: Record<SupportedLocale, string> = {
   "zh-CN": "language.zhCN",
+  "zh-TW": "language.zhTW",
   "en-US": "language.enUS",
   "ru-RU": "language.ruRU",
   "ko-KR": "language.koKR",
@@ -392,7 +394,11 @@ const oidcLoading = ref(false);
 const isRegisterMode = ref(false);
 const oidcEnabled = ref(false);
 const oidcProviderName = ref("");
-const registrationEnabled = ref(true);
+// Wait for configuration before showing a registration entry.
+const registrationMode = ref("");
+const registrationEnabled = computed(() =>
+  canRegister(registrationMode.value, !!inviteLookup.value),
+);
 const complexPasswordEnabled = ref(false);
 
 const inviteToken = ref("");
@@ -464,7 +470,8 @@ const registerRules = computed(() => ({
 }));
 
 const toggleMode = () => {
-  isRegisterMode.value = !isRegisterMode.value;
+  isRegisterMode.value = !isRegisterMode.value && registrationEnabled.value;
+
   Object.keys(registerData).forEach((key) => {
     (registerData as any)[key] = "";
   });
@@ -528,13 +535,14 @@ const loadOIDCConfig = async () => {
   }
 };
 
+// Registration stays hidden if configuration cannot be loaded.
 const loadAuthConfig = async () => {
   try {
     const response = await getAuthConfig();
-    registrationEnabled.value = response.registration_mode !== "invite_only";
+    registrationMode.value = response.success ? response.registration_mode : "";
     complexPasswordEnabled.value = response.complex_password_enabled;
   } catch {
-    registrationEnabled.value = true;
+    registrationMode.value = "";
     complexPasswordEnabled.value = false;
   }
 };
@@ -612,6 +620,7 @@ const handleLogin = async () => {
 };
 
 const handleRegister = async () => {
+  if (!registrationEnabled.value) return;
   try {
     const valid = await registerFormRef.value?.validate();
     if (valid !== true) return;
@@ -684,15 +693,15 @@ onMounted(async () => {
       inviteLookupLoading.value = false;
     }
 
+    // 2. 已登录则直接兑换 token 进入空间（三种模式通用）。
     if (authStore.isLoggedIn && (await authStore.refreshFromAuthMe())) {
       await acceptAndEnter(tokenFromQuery);
       return;
     }
 
-    const cfg = await getAuthConfig();
-    const inviteOnly = cfg.registration_mode === "invite_only";
-    registrationEnabled.value = !inviteOnly;
-    isRegisterMode.value = !inviteOnly;
+    // 3. Only enabled registration modes may create an invited account.
+    await loadAuthConfig();
+    isRegisterMode.value = registrationEnabled.value;
     loadOIDCConfig();
     return;
   }
@@ -702,20 +711,16 @@ onMounted(async () => {
     return;
   }
 
-  const AUTO_SETUP_FAILED_KEY = "weknora_auto_setup_failed";
-  if (localStorage.getItem(AUTO_SETUP_FAILED_KEY) !== "true") {
-    try {
-      const response = await autoSetup();
-      if (response.success) {
-        authStore.setLiteMode(true);
-        await persistLoginResponse(response);
-        return;
-      } else {
-        localStorage.setItem(AUTO_SETUP_FAILED_KEY, "true");
-      }
-    } catch {
-      localStorage.setItem(AUTO_SETUP_FAILED_KEY, "true");
+  localStorage.removeItem("weknora_auto_setup_failed");
+  try {
+    const response = await autoSetup();
+    if (response.success) {
+      authStore.setLiteMode(true);
+      await persistLoginResponse(response);
+      return;
     }
+  } catch {
+    // Auto-setup may be unavailable outside the native Lite shell.
   }
 
   loadOIDCConfig();
