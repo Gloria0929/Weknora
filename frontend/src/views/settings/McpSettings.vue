@@ -12,7 +12,7 @@
     </div>
 
     <template v-else>
-      <Teleport to="#toolbox-toolbar" defer>
+      <Teleport v-if="hasToolboxToolbar" to="#toolbox-toolbar" defer>
         <t-input v-if="services.length > 0" v-model="query" class="list-search" :placeholder="$t('menu.search')"
           :aria-label="$t('menu.search')" clearable>
           <template #prefix-icon><t-icon name="search" size="16px" /></template>
@@ -151,6 +151,10 @@ const dialogInitialStep = ref<0 | 1>(0)
 const togglingIds = ref(new Set<string>())
 const serviceUsage = (service: MCPService) => service.usage_instructions?.trim() || service.description?.trim() || ''
 const query = ref('')
+// 搜索框的宿槽 #toolbox-toolbar 只有工具箱页面会渲染。设置弹窗里挂这个 Teleport
+// 会让 Vue 拿到 null 目标，之后对该子树的每次 patch 都抛 TypeError，整个设置面板
+// 从此不再更新（切页/关闭全部失效），只能刷新页面。所以先确认宿槽存在。
+const hasToolboxToolbar = ref(false)
 const filteredServices = computed(() => services.value.filter((service) =>
   matchesResourceQuery({ name: service.name, description: serviceUsage(service) }, query.value),
 ))
@@ -255,6 +259,8 @@ const getTransportTypeLabel = (transportType: string) => {
 }
 
 onMounted(() => {
+  // onMounted 触发于整棵父树 patch 之后的 mounted 队列，#toolbox-toolbar 此时已就位。
+  hasToolboxToolbar.value = typeof document !== 'undefined' && !!document.getElementById('toolbox-toolbar')
   loadServices()
 })
 
