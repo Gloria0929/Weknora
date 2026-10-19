@@ -127,6 +127,29 @@ func TestWebPreviewBrowserProbeRestrictsCORSAndDoesNotExposeSecrets(t *testing.T
 	}
 }
 
+func TestWebPreviewAllowsSameOriginNestedFrames(t *testing.T) {
+	m := &webPreviewRecoveryManager{status: http.StatusOK}
+	h := NewProgrammingHandler(programmingGitSession{}, service.NewPinnedSessionSandbox(programmingGitPin{}, m, nil, nil))
+	router := gin.New()
+	router.Use(h.WebPreviewMiddleware(nil))
+	token := strings.Repeat("b", 32)
+	host := "wkpreview-" + token + ".localhost:8080"
+	lease := previewLease{UserID: "user", TenantID: 1, SessionID: "git-test", SandboxID: "preview-sandbox", Port: 8080, RelayPort: 45678, Secret: strings.Repeat("a", 64), Host: host, AppOrigin: "http://localhost:5173"}
+	require.NoError(t, h.previewLeases.put(context.Background(), token, lease))
+	for _, path := range []string{"/", "/code-server/", "/vnc/index.html"} {
+		t.Run(path, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "http://"+host+path, nil).WithContext(ctx))
+			require.Equal(t, http.StatusOK, response.Code)
+			// Nested frames have both the application and the preview itself
+			// as ancestors. Keep every other origin excluded and retain sandboxing.
+			require.Equal(t, "frame-ancestors 'self' "+lease.AppOrigin+"; sandbox allow-scripts allow-same-origin allow-forms allow-downloads", response.Header().Get("Content-Security-Policy"))
+		})
+	}
+}
+
 // The hostname must come from the origin (the address the browser used) and the
 // port from this request (the listener that serves the relay). Swapping them
 // breaks one of the two cases below.

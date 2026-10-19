@@ -6,6 +6,7 @@ import http.client
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import socket
 import subprocess
@@ -17,13 +18,44 @@ RESERVED_PORTS = {49983, 5900, 6080, 9222}
 SKIP_DIRS = {"node_modules", "input", "output", "vendor", "venv", "__pycache__"}
 
 
-def listening_ports():
-    ports = set()
-    for table in ("/proc/net/tcp", "/proc/net/tcp6"):
+def workspace_socket_inodes(root, proc_root):
+    """Only sockets held by processes running from this workspace belong here."""
+    root = Path(root).resolve()
+    inodes = set()
+    try:
+        processes = list(proc_root.iterdir())
+    except OSError:
+        return inodes
+    for process in processes:
+        if not process.name.isdigit():
+            continue
         try:
-            for line in Path(table).read_text().splitlines()[1:]:
+            directory = (process / 'cwd').resolve(strict=True)
+            if directory != root and root not in directory.parents:
+                continue
+            for fd in (process / 'fd').iterdir():
+                try:
+                    target = os.readlink(fd)
+                except OSError:
+                    continue
+                if target.startswith('socket:[') and target.endswith(']'):
+                    inodes.add(target[8:-1])
+        except (OSError, RuntimeError):
+            # A process may exit during discovery; never fall back to all ports.
+            continue
+    return inodes
+
+
+def listening_ports(root, proc_root=Path('/proc')):
+    inodes = workspace_socket_inodes(root, proc_root)
+    if not inodes:
+        return []
+    ports = set()
+    for table in (proc_root / 'net/tcp', proc_root / 'net/tcp6'):
+        try:
+            for line in table.read_text().splitlines()[1:]:
                 fields = line.split()
-                if fields[3] == "0A":
+                if fields[3] == "0A" and fields[9] in inodes:
                     port = int(fields[1].split(":")[-1], 16)
                     if port >= 1024 and port not in RESERVED_PORTS:
                         ports.add(port)
@@ -40,6 +72,10 @@ def serves_html(url):
         connection.request("GET", (parsed.path or "/") + ("?" + parsed.query if parsed.query else ""))
         response = connection.getresponse()
         sample = response.read(1024).lower()
+        # The sandbox image's workbench is infrastructure, not a user project.
+        # Otherwise an empty workspace falls back to its always-running AIO UI.
+        if re.search(rb'<title\b[^>]*>\s*aio\s+sandbox\s*</title\s*>', sample):
+            return False
         return response.status < 400 and ("text/html" in (response.getheader("Content-Type") or "") or b"<!doctype html" in sample or b"<html" in sample)
     except (OSError, http.client.HTTPException):
         return False
@@ -47,10 +83,10 @@ def serves_html(url):
         connection.close()
 
 
-def running_url(preferred=""):
-    if preferred and serves_html(preferred):
+def running_url(root, preferred=""):
+    urls = ["http://127.0.0.1:%d/" % port for port in listening_ports(root)]
+    if preferred in urls and serves_html(preferred):
         return preferred
-    urls = ["http://127.0.0.1:%d/" % port for port in listening_ports()]
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
         results = list(pool.map(serves_html, urls))
     return next((url for url, ready in zip(urls, results) if ready), "")

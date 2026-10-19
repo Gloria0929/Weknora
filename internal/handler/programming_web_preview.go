@@ -173,7 +173,9 @@ func (h *ProgrammingHandler) WebPreviewMiddleware(client *redis.Client) gin.Hand
 				response.Header.Del(sandbox.InboundTokenHeader)
 				response.Header.Del("X-WeKnora-Preview-Relay")
 				response.Header.Del("X-Frame-Options")
-				response.Header.Set("Content-Security-Policy", "frame-ancestors "+lease.AppOrigin+"; sandbox allow-scripts allow-same-origin allow-forms allow-downloads")
+				// AIO and other preview apps embed their own same-origin pages.
+				// CSP checks every ancestor, including that intermediate preview.
+				response.Header.Set("Content-Security-Policy", "frame-ancestors 'self' "+lease.AppOrigin+"; sandbox allow-scripts allow-same-origin allow-forms allow-downloads")
 				response.Header.Set("Referrer-Policy", "no-referrer")
 				response.Header.Set("Cache-Control", "no-store")
 				response.Header.Del("Access-Control-Allow-Origin")

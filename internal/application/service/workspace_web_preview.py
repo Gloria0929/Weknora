@@ -46,7 +46,7 @@ def web_preview(options):
             except (OSError, ValueError):
                 pass
         RESERVED_PORTS.update(item['relay_port'] for item in relays)
-        url = running_url()
+        url = running_url(root)
         pid_file = state_dir / 'server.pid'
         pid = pid_file.read_text().strip() if pid_file.exists() else ''
         log_path = state_dir / 'server.log'
@@ -63,7 +63,7 @@ def web_preview(options):
                 pid = str(process.pid)
             deadline = time.monotonic() + 25
             while time.monotonic() < deadline:
-                url = running_url()
+                url = running_url(root)
                 if url or (process and process.poll() is not None):
                     break
                 time.sleep(.5)
